@@ -1,11 +1,11 @@
 using UnityEngine;
-
 public class WallZoneTransparency : MonoBehaviour
 {
     [Header("Referencias")]
     public Renderer zonaTransparente;
     public Renderer mureteRenderer;
     public Renderer banquetaRenderer;
+    public Renderer tuboRenderer; // ← NUEVO
 
     [Header("Configuración")]
     [Range(0f, 1f)] public float alphaVisible = 1f;
@@ -15,20 +15,21 @@ public class WallZoneTransparency : MonoBehaviour
     private Material mat;
     private Material matMurete;
     private Material matBanqueta;
+    private Material matTubo; // ← NUEVO
     private float alphaObjetivo;
 
     void Start()
     {
-        if (zonaTransparente == null || mureteRenderer == null || banquetaRenderer == null)
+        if (zonaTransparente == null || mureteRenderer == null || banquetaRenderer == null || tuboRenderer == null)
         {
-            Debug.LogError("Asigna los 3 renderers en el Inspector");
+            Debug.LogError("Asigna los 4 renderers en el Inspector");
             enabled = false;
             return;
         }
-
         mat = zonaTransparente.material;
         matMurete = mureteRenderer.material;
         matBanqueta = banquetaRenderer.material;
+        matTubo = tuboRenderer.material; // ← NUEVO
         alphaObjetivo = alphaVisible;
     }
 
@@ -47,6 +48,10 @@ public class WallZoneTransparency : MonoBehaviour
         Color c3 = matBanqueta.GetColor("_BaseColor");
         c3.a = c.a;
         matBanqueta.SetColor("_BaseColor", c3);
+
+        Color c4 = matTubo.GetColor("_BaseColor"); // ← NUEVO
+        c4.a = c.a;
+        matTubo.SetColor("_BaseColor", c4);
     }
 
     void OnTriggerEnter(Collider other)
