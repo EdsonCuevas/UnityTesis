@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// Añade este componente al GameObject del tubo (ducto).
@@ -41,9 +42,10 @@ public class ConduitPathGuide : MonoBehaviour
     // Estado privado (añadir a los ya existentes):
     private Vector3 _prevPosLeft;
     private Vector3 _prevPosRight;
-    private bool    _leftInit;
-    private bool    _rightInit;
+    private bool _leftInit;
+    private bool _rightInit;
     private float[] _originalDrags;
+    private List<Collider> _disabledColliders;
 
     // ── Estado ────────────────────────────────────────────────────────────────
     private bool _active;
@@ -101,7 +103,7 @@ public class ConduitPathGuide : MonoBehaviour
 
         // Llegó al final
         if (_progress >= _totalLen)
-            Deactivate();
+            FreezeAll();
     }
 
     // ── Avance: usa la velocidad del segmento que empuja la punta ────────────
@@ -150,7 +152,7 @@ public class ConduitPathGuide : MonoBehaviour
             _tipRB.isKinematic = true;
 
         Debug.Log("[ConduitPathGuide] Cable entrando al ducto.");
-        _leftInit  = false;
+        _leftInit = false;
         _rightInit = false;
 
         // Aumentar drag de todos los segmentos para amortiguar movimientos bruscos
@@ -161,7 +163,7 @@ public class ConduitPathGuide : MonoBehaviour
             var rb = segs[i].GetComponent<Rigidbody>();
             if (rb == null) continue;
             _originalDrags[i] = rb.linearDamping;
-            rb.linearDamping            = activeDrag;
+            rb.linearDamping = activeDrag;
         }
     }
 
@@ -179,12 +181,74 @@ public class ConduitPathGuide : MonoBehaviour
             if (rb == null) continue;
             if (_originalDrags != null && i < _originalDrags.Length)
                 rb.linearDamping = _originalDrags[i];
-            rb.linearVelocity        = Vector3.zero;
+            rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
         _originalDrags = null;
 
         Debug.Log("[ConduitPathGuide] Cable atravesó el ducto.");
+    }
+
+    private void FreezeAll()
+    {
+        _active = false;
+        _disabledColliders = new List<Collider>();
+
+        // Congelar la punta (siempre está dentro al llegar al final)
+        if (_tipRB != null)
+        {
+            if (!_tipRB.isKinematic)
+            {
+                _tipRB.linearVelocity = Vector3.zero;
+                _tipRB.angularVelocity = Vector3.zero;
+            }
+            _tipRB.isKinematic = true;
+        }
+
+        // Congelar todos los segmentos en su posición actual y quitar colisiones
+        var segs = wireController.segments;
+        for (int i = 0; i < segs.Count; i++)
+        {
+            var rb = segs[i].GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                rb.isKinematic = true;
+            }
+
+            // Quitar colisiones a TODOS los segmentos para que sea atravesable
+            Collider[] cols = segs[i].GetComponentsInChildren<Collider>();
+            foreach (var col in cols)
+            {
+                if (col.enabled)
+                {
+                    col.enabled = false;
+                    _disabledColliders.Add(col);
+                }
+            }
+        }
+
+        // Quitar colisiones de la punta también
+        if (_tipRB != null)
+        {
+            Collider[] tipCols = _tipRB.GetComponentsInChildren<Collider>();
+            foreach (var col in tipCols)
+            {
+                if (col.enabled)
+                {
+                    col.enabled = false;
+                    _disabledColliders.Add(col);
+                }
+            }
+        }
+
+        _originalDrags = null;
+
+        Debug.Log("[ConduitPathGuide] Cable congelado. Parte interna kinematic, todo el cable sin colisiones.");
     }
 
     // ── Evaluación del path ───────────────────────────────────────────────────
