@@ -7,5 +7,10 @@ public class MenuController : MonoBehaviour
     {
         SceneManager.LoadScene("SampleScene");
     }
+
+    public void RestartScene()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
 }
 

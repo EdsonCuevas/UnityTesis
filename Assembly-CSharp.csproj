@@ -55,6 +55,7 @@
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireTipReceiver.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\TubeRenderer.cs" />
     <Compile Include="Assets\Scripts\MenuController.cs" />
+    <Compile Include="Assets\Scripts\CentroBotella.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireConnectorType.cs" />
     <Compile Include="Assets\Scripts\WallZoneTransparency.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireStartConnector.cs" />
