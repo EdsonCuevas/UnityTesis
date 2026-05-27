@@ -17,6 +17,8 @@ public class ConduitPathGuide : MonoBehaviour
     [Header("Cable")]
     [Tooltip("WireController del cable que se insertará en este ducto.")]
     public WireController wireController;
+    [Header("Progreso")]
+    public int cableID = 1;
 
     [Header("Configuración")]
     [Tooltip("Radio de detección en la entrada del ducto.")]
@@ -247,6 +249,11 @@ public class ConduitPathGuide : MonoBehaviour
         }
 
         _originalDrags = null;
+
+        if (LevelProgressManager.Instance != null)
+        {
+            LevelProgressManager.Instance.CompletarCable(cableID);
+        }
 
         Debug.Log("[ConduitPathGuide] Cable congelado. Parte interna kinematic, todo el cable sin colisiones.");
     }
