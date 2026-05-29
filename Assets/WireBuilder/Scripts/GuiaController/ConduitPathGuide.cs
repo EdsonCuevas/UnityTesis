@@ -209,8 +209,11 @@ public class ConduitPathGuide : MonoBehaviour
         _tipRB = wireController.endAnchorTemp.GetComponent<Rigidbody>();
         if (_tipRB != null)
         {
-            _tipRB.linearVelocity = Vector3.zero;
-            _tipRB.angularVelocity = Vector3.zero;
+            if (!_tipRB.isKinematic)
+            {
+                _tipRB.linearVelocity = Vector3.zero;
+                _tipRB.angularVelocity = Vector3.zero;
+            }
             _tipRB.isKinematic = true;
         }
 
@@ -283,8 +286,11 @@ public class ConduitPathGuide : MonoBehaviour
             var rb = segs[i].GetComponent<Rigidbody>();
             if (rb != null)
             {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
                 rb.isKinematic = true;
             }
 

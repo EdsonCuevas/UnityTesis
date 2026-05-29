@@ -5,5 +5,5 @@ Build/
 Builds/
 Logs/
 UserSettings/
-.vs/
+.vscode/
 .utmp/
