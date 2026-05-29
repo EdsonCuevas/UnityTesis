@@ -56,8 +56,10 @@
     <Compile Include="Assets\WireBuilder\Scripts\TubeRenderer.cs" />
     <Compile Include="Assets\Scripts\nivel_1\levelData.cs" />
     <Compile Include="Assets\Scripts\MenuController.cs" />
+    <Compile Include="Assets\Scripts\tutorial\FollowPlayerUI.cs" />
     <Compile Include="Assets\Scripts\CentroBotella.cs" />
     <Compile Include="Assets\Scripts\personaje\FootstepsVR.cs" />
+    <Compile Include="Assets\Scripts\tutorial\HighlightPart.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireConnectorType.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelProgressManager.cs" />
     <Compile Include="Assets\Scripts\WallZoneTransparency.cs" />
@@ -65,6 +67,8 @@
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireStartConnector.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
+    <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
+    <Compile Include="Assets\Scripts\tutorial\VRControllerAnimator.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
   </ItemGroup>
