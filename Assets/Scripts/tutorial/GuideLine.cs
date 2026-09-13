@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(LineRenderer))]
@@ -6,16 +7,21 @@ public class GuideLine : MonoBehaviour
     public Transform head;
     [Tooltip("Raíz del jugador: sus colliders se ignoran al buscar el piso.")]
     public Transform ignoreRoot;
-    public int pointCount = 20;
     public float startAhead = 0.4f;
+    [Tooltip("Distancia a la que un punto de paso se da por alcanzado.")]
+    public float waypointReachRadius = 0.8f;
     public float hideWithin = 0.8f;
-    public float floorOffset = 0.03f;
-    public float arcHeight = 0.08f;
+    public float floorOffset = 0.05f;
     public float scrollSpeed = 1.5f;
 
+    static readonly Transform[] NoWaypoints = new Transform[0];
+
     readonly RaycastHit[] hits = new RaycastHit[8];
+    readonly List<Vector3> points = new List<Vector3>();
     LineRenderer line;
     Transform target;
+    Transform[] waypoints = NoWaypoints;
+    int nextWaypoint;
     float scroll;
     float floorY;
 
@@ -23,13 +29,14 @@ public class GuideLine : MonoBehaviour
     {
         line = GetComponent<LineRenderer>();
         line.useWorldSpace = true;
-        line.positionCount = pointCount;
         line.enabled = false;
     }
 
-    public void Show(Transform destination)
+    public void Show(Transform destination, Transform[] pathPoints)
     {
         target = destination;
+        waypoints = pathPoints ?? NoWaypoints;
+        nextWaypoint = 0;
         floorY = head.position.y - 1.6f;
     }
 
@@ -43,28 +50,45 @@ public class GuideLine : MonoBehaviour
     {
         if (target == null) return;
 
-        Vector3 forward = head.forward;
-        forward.y = 0f;
-        Vector3 start = head.position + (forward.sqrMagnitude > 1e-4f ? forward.normalized * startAhead : Vector3.zero);
-        Vector3 end = target.position;
+        Vector3 player = Flat(head.position);
+        while (nextWaypoint < waypoints.Length &&
+               Vector3.Distance(player, Flat(waypoints[nextWaypoint].position)) <= waypointReachRadius)
+            nextWaypoint++;
 
         floorY = FindFloorY(floorY);
-        start.y = floorY + floorOffset;
-        end.y = floorY + floorOffset;
 
-        line.enabled = Vector3.Distance(start, end) > hideWithin;
+        points.Clear();
+        Vector3 firstTarget = nextWaypoint < waypoints.Length ? waypoints[nextWaypoint].position : target.position;
+        points.Add(OnFloor(player + Vector3.ClampMagnitude(Flat(firstTarget) - player, startAhead)));
+        for (int i = nextWaypoint; i < waypoints.Length; i++)
+            points.Add(OnFloor(waypoints[i].position));
+        points.Add(OnFloor(target.position));
+
+        float length = 0f;
+        for (int i = 1; i < points.Count; i++)
+            length += Vector3.Distance(points[i - 1], points[i]);
+
+        line.enabled = length > hideWithin;
         if (!line.enabled) return;
 
-        for (int i = 0; i < pointCount; i++)
-        {
-            float t = i / (float)(pointCount - 1);
-            Vector3 point = Vector3.Lerp(start, end, t);
-            point.y += Mathf.Sin(t * Mathf.PI) * arcHeight;
-            line.SetPosition(i, point);
-        }
+        line.positionCount = points.Count;
+        for (int i = 0; i < points.Count; i++)
+            line.SetPosition(i, points[i]);
 
         scroll = Mathf.Repeat(scroll - scrollSpeed * Time.deltaTime, 1f);
         line.material.mainTextureOffset = new Vector2(scroll, 0f);
+    }
+
+    Vector3 OnFloor(Vector3 position)
+    {
+        position.y = floorY + floorOffset;
+        return position;
+    }
+
+    static Vector3 Flat(Vector3 position)
+    {
+        position.y = 0f;
+        return position;
     }
 
     float FindFloorY(float fallback)

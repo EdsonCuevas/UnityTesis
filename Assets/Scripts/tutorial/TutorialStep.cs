@@ -11,6 +11,8 @@ public abstract class TutorialStep : MonoBehaviour
     public ControllerPart[] highlightParts;
     [Tooltip("Destino al que apunta la línea guía del piso.")]
     public Transform worldTarget;
+    [Tooltip("Puntos intermedios de la línea guía, en orden (por ejemplo, una puerta).")]
+    public Transform[] pathPoints;
     [Tooltip("Objetos visibles solo durante este paso (marcadores, flechas).")]
     public GameObject[] visibleDuringStep;
 

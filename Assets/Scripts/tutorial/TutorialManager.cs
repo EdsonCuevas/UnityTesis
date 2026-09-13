@@ -115,7 +115,7 @@ public class TutorialManager : MonoBehaviour
         panel.Show(step.title, step.body, index + 1, steps.Length);
         controllerHints.Show(step.highlightParts);
 
-        if (step.worldTarget != null) guideLine.Show(step.worldTarget);
+        if (step.worldTarget != null) guideLine.Show(step.worldTarget, step.pathPoints);
         else guideLine.Hide();
 
         PlayNarration(step.narration);
