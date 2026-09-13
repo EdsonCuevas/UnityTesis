@@ -1,231 +1,190 @@
+using System.Collections;
+using Oculus.Interaction.Locomotion;
 using UnityEngine;
-using UnityEngine.XR;
-using TMPro;
 using UnityEngine.SceneManagement;
 
 public class TutorialManager : MonoBehaviour
 {
-    public enum Step
-    {
-        Move,
-        Turn,
-        Grab,
-        Jump,
-        Complete
-    }
+    [Header("Jugador")]
+    public Transform head;
+    public Transform rigRoot;
+    public Transform leftHand;
+    public Transform rightHand;
+    public FirstPersonLocomotor locomotor;
 
-    [Header("UI")]
-    public TextMeshProUGUI instructionText;
+    [Header("Guías")]
+    public TutorialPanel panel;
+    public ControllerHints controllerHints;
+    public GuideLine guideLine;
+    public OVRScreenFade screenFade;
 
-    [Header("Escena siguiente")]
-    public string UIMenuSceneName = "SampleScene";
+    [Header("Pasos en orden")]
+    public TutorialStep[] steps;
 
-    // Highlights
-    private HighlightPart leftStickHL;
-    private HighlightPart rightStickHL;
-    private HighlightPart gripHL;
-    private HighlightPart buttonAHL;
+    [Header("Final")]
+    public string finalTitle = "¡Tutorial completado!";
+    [TextArea(2, 6)] public string finalBody;
+    public AudioClip finalNarration;
+    public string nextSceneName = "SampleScene";
 
-    private Step currentStep = Step.Move;
+    [Header("Audio")]
+    public AudioSource narrationSource;
+    public AudioSource sfxSource;
+    public AudioClip stepCompleteClip;
+    public AudioClip tutorialCompleteClip;
 
-    private bool loadingScene = false;
+    [Header("Ritmo")]
+    [Tooltip("Evita que un paso se complete antes de que el jugador alcance a leerlo.")]
+    public float minSecondsPerStep = 1.5f;
+    public float pauseBetweenSteps = 1.2f;
+    [Tooltip("Segundos manteniendo B para saltar el tutorial.")]
+    public float skipHoldSeconds = 2f;
+
+    static readonly string[] Praise = { "¡Muy bien!", "¡Excelente!", "¡Perfecto!", "¡Así se hace!" };
+    static readonly Color PraiseColor = new Color(0.35f, 1f, 0.5f);
+
+    TutorialContext context;
+    TutorialStep currentStep;
+    Coroutine flow;
+    float skipHeld;
+    bool finished;
+    bool loading;
 
     void Start()
     {
-        // Busca automáticamente los objetos por nombre
-
-        leftStickHL = BuscarHL("b_thumbstick_left");
-        rightStickHL = BuscarHL("b_thumbstick");
-        gripHL = BuscarHL("fb_trigger_grip");
-        buttonAHL = BuscarHL("b_button_a");
-    }
-
-    HighlightPart BuscarHL(string nombreObjeto)
-    {
-        GameObject obj = GameObject.Find(nombreObjeto);
-
-        if (obj == null)
+        context = new TutorialContext
         {
-            Debug.LogWarning($"No encontré el objeto: {nombreObjeto}");
-            return null;
-        }
+            Head = head,
+            RigRoot = rigRoot,
+            LeftHand = leftHand,
+            RightHand = rightHand,
+            Locomotor = locomotor,
+            Panel = panel
+        };
 
-        HighlightPart hp = obj.GetComponent<HighlightPart>();
+        foreach (var step in steps)
+            step.SetVisible(false);
 
-        if (hp == null)
-        {
-            Debug.LogWarning($"{nombreObjeto} no tiene HighlightPart");
-        }
-
-        return hp;
+        ComfortSettings.ApplyToScene();
+        flow = StartCoroutine(RunSteps());
     }
 
     void Update()
     {
-        InputDevice left =
-            InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+        if (finished) return;
 
-        InputDevice right =
-            InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+        bool holding = OVRInput.Get(OVRInput.Button.Two, OVRInput.Controller.RTouch);
+        skipHeld = holding ? skipHeld + Time.deltaTime : 0f;
+        panel.SetSkipProgress(skipHeld / skipHoldSeconds);
 
-        switch (currentStep)
+        if (skipHeld >= skipHoldSeconds)
         {
-            // =========================
-            // MOVERSE
-            // =========================
-            case Step.Move:
-
-                SetHighlight(leftStickHL);
-
-                instructionText.text =
-                    "🕹️ MUÉVETE\n\n" +
-                    "Usa el joystick IZQUIERDO\n" +
-                    "para caminar.";
-
-                left.TryGetFeatureValue(
-                    CommonUsages.primary2DAxis,
-                    out Vector2 moveAxis
-                );
-
-                if (moveAxis.magnitude > 0.7f)
-                {
-                    NextStep();
-                }
-
-                break;
-
-            // =========================
-            // GIRAR
-            // =========================
-            case Step.Turn:
-
-                SetHighlight(rightStickHL);
-
-                instructionText.text =
-                    "🔄 GIRA LA CÁMARA\n\n" +
-                    "Usa el joystick DERECHO\n" +
-                    "para voltear.";
-
-                right.TryGetFeatureValue(
-                    CommonUsages.primary2DAxis,
-                    out Vector2 turnAxis
-                );
-
-                if (Mathf.Abs(turnAxis.x) > 0.7f)
-                {
-                    NextStep();
-                }
-
-                break;
-
-            // =========================
-            // AGARRAR
-            // =========================
-            case Step.Grab:
-
-                SetHighlight(gripHL);
-
-                instructionText.text =
-                    "✊ AGARRA OBJETOS\n\n" +
-                    "Aprieta el botón lateral\n" +
-                    "(GRIP).";
-
-                right.TryGetFeatureValue(
-                    CommonUsages.grip,
-                    out float gripValue
-                );
-
-                if (gripValue > 0.8f)
-                {
-                    NextStep();
-                }
-
-                break;
-
-            // =========================
-            // SALTAR
-            // =========================
-            case Step.Jump:
-
-                SetHighlight(buttonAHL);
-
-                instructionText.text =
-                    "🦘 SALTA\n\n" +
-                    "Presiona el botón A.";
-
-                right.TryGetFeatureValue(
-                    CommonUsages.primaryButton,
-                    out bool aPressed
-                );
-
-                if (aPressed)
-                {
-                    NextStep();
-                }
-
-                break;
-
-            // =========================
-            // COMPLETADO
-            // =========================
-            case Step.Complete:
-
-                ClearHighlights();
-
-                instructionText.text =
-                    "✅ ¡LISTO!\n\n" +
-                    "Ya sabes usar los controles.\n\n" +
-                    "Entrando al juego...";
-
-                if (!loadingScene)
-                {
-                    loadingScene = true;
-
-                    // Espera 5 segundos
-                    Invoke(nameof(LoadNextScene), 5f);
-                }
-
-                break;
+            StopCoroutine(flow);
+            EndCurrentStep();
+            ShowFinal();
         }
     }
 
-    void SetHighlight(HighlightPart active)
+    IEnumerator RunSteps()
     {
-        if (leftStickHL != null)
-            leftStickHL.Highlight(active == leftStickHL);
+        for (int i = 0; i < steps.Length; i++)
+        {
+            BeginStep(steps[i], i);
+            float startedAt = Time.time;
 
-        if (rightStickHL != null)
-            rightStickHL.Highlight(active == rightStickHL);
+            while (!currentStep.IsComplete || Time.time - startedAt < minSecondsPerStep)
+            {
+                currentStep.Tick();
+                panel.SetProgress(currentStep.Progress);
+                yield return null;
+            }
 
-        if (gripHL != null)
-            gripHL.Highlight(active == gripHL);
+            panel.SetProgress(1f);
+            Celebrate();
+            EndCurrentStep();
+            yield return new WaitForSeconds(pauseBetweenSteps);
+        }
 
-        if (buttonAHL != null)
-            buttonAHL.Highlight(active == buttonAHL);
+        ShowFinal();
     }
 
-    void ClearHighlights()
+    void BeginStep(TutorialStep step, int index)
     {
-        if (leftStickHL != null)
-            leftStickHL.Highlight(false);
+        currentStep = step;
+        step.Begin(context);
+        panel.Show(step.title, step.body, index + 1, steps.Length);
+        controllerHints.Show(step.highlightParts);
 
-        if (rightStickHL != null)
-            rightStickHL.Highlight(false);
+        if (step.worldTarget != null) guideLine.Show(step.worldTarget);
+        else guideLine.Hide();
 
-        if (gripHL != null)
-            gripHL.Highlight(false);
-
-        if (buttonAHL != null)
-            buttonAHL.Highlight(false);
+        PlayNarration(step.narration);
     }
 
-    void NextStep()
+    void EndCurrentStep()
     {
-        currentStep++;
+        if (currentStep == null) return;
+
+        currentStep.End();
+        currentStep = null;
+        controllerHints.HideAll();
+        guideLine.Hide();
     }
 
-    void LoadNextScene()
+    void Celebrate()
     {
-        SceneManager.LoadScene(UIMenuSceneName);
+        panel.ShowFeedback(Praise[Random.Range(0, Praise.Length)], PraiseColor);
+        if (stepCompleteClip != null) sfxSource.PlayOneShot(stepCompleteClip);
+        StartCoroutine(PulseHaptics(0.15f));
+    }
+
+    IEnumerator PulseHaptics(float seconds)
+    {
+        OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.LTouch);
+        OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.RTouch);
+        yield return new WaitForSeconds(seconds);
+        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
+        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
+    }
+
+    void ShowFinal()
+    {
+        finished = true;
+        panel.SetSkipVisible(false);
+        panel.Show(finalTitle, finalBody, 0, 0);
+        panel.SetProgress(1f);
+
+        if (tutorialCompleteClip != null) sfxSource.PlayOneShot(tutorialCompleteClip);
+        PlayNarration(finalNarration);
+
+        panel.SetButtons(
+            new TutorialPanel.ButtonSpec("Repetir tutorial", () => LoadScene(SceneManager.GetActiveScene().name)),
+            new TutorialPanel.ButtonSpec("Ir al nivel", () => LoadScene(nextSceneName)));
+    }
+
+    void PlayNarration(AudioClip clip)
+    {
+        narrationSource.Stop();
+        if (clip == null) return;
+        narrationSource.clip = clip;
+        narrationSource.Play();
+    }
+
+    void LoadScene(string sceneName)
+    {
+        if (loading) return;
+        loading = true;
+        StartCoroutine(FadeAndLoad(sceneName));
+    }
+
+    IEnumerator FadeAndLoad(string sceneName)
+    {
+        narrationSource.Stop();
+        if (screenFade != null)
+        {
+            screenFade.FadeOut();
+            yield return new WaitForSeconds(screenFade.fadeTime);
+        }
+        SceneManager.LoadScene(sceneName);
     }
 }

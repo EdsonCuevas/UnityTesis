@@ -64,6 +64,9 @@ public class ConduitPathGuide : MonoBehaviour
     private Vector3 _prevPosLeft, _prevPosRight;
     private bool _leftInit, _rightInit;
 
+    public bool IsComplete { get; private set; }
+    public float Progress01 => _totalLen > 0f ? _progress / _totalLen : 0f;
+
     // ── Inicialización ────────────────────────────────────────────────────────
     private void Start()
     {
@@ -89,7 +92,7 @@ public class ConduitPathGuide : MonoBehaviour
     // ── Loop principal ────────────────────────────────────────────────────────
     private void FixedUpdate()
     {
-        if (wireController == null || wireController.endAnchorTemp == null) return;
+        if (IsComplete || wireController == null || wireController.endAnchorTemp == null) return;
 
         if (!_active)
         {
@@ -268,6 +271,7 @@ public class ConduitPathGuide : MonoBehaviour
     private void FreezeAll()
     {
         _active = false;
+        IsComplete = true;
         _disabledColliders = new List<Collider>();
 
         if (_tipRB != null)
