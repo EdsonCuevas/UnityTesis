@@ -32,30 +32,36 @@ public class TutorialPanel : MonoBehaviour
     [Header("Botones")]
     public RectTransform buttonContainer;
     public Button buttonTemplate;
+    [Tooltip("Objetos ISDK de rayo y toque. Solo se activan cuando hay botones, para no bloquear el movimiento ni los agarres.")]
+    public GameObject[] interactionSurfaces;
 
-    [Header("Seguir al jugador")]
+    [Header("Muñeca")]
     public Transform head;
-    public float distance = 1.3f;
-    public float heightOffset = -0.15f;
-    [Tooltip("Ángulo fuera de la vista a partir del cual el panel se reacomoda frente al jugador.")]
-    public float repositionAngle = 35f;
-    public float distanceTolerance = 0.6f;
-    public float followSharpness = 4f;
+    [Tooltip("LeftControllerAnchor: el panel flota sobre esta mano.")]
+    public Transform wrist;
+    public Vector3 offsetAboveWrist = new Vector3(0f, 0.14f, 0f);
+    public float followSharpness = 20f;
+
+    [Header("Atención")]
+    public CanvasGroup canvasGroup;
+    [Tooltip("Ángulo desde la mirada dentro del cual el panel se ve completamente opaco.")]
+    public float lookAngle = 30f;
+    public float idleAlpha = 0.35f;
 
     readonly List<Button> buttons = new List<Button>();
     float shownProgress;
     float targetProgress;
     float feedbackUntil;
-    bool repositioning;
 
     void Awake()
     {
         buttonTemplate.gameObject.SetActive(false);
         feedbackText.text = string.Empty;
         skipFill.fillAmount = 0f;
+        SetInteractable(false);
     }
 
-    void Start() => SnapInFront();
+    void Start() => transform.position = wrist.position + offsetAboveWrist;
 
     public void Show(string title, string body, int stepNumber, int stepCount)
     {
@@ -81,7 +87,7 @@ public class TutorialPanel : MonoBehaviour
 
     public void SetButtons(params ButtonSpec[] specs)
     {
-        ClearButtons();
+        DestroyButtons();
         foreach (var spec in specs)
         {
             var button = Instantiate(buttonTemplate, buttonContainer);
@@ -91,21 +97,26 @@ public class TutorialPanel : MonoBehaviour
             button.onClick.AddListener(() => onClick());
             buttons.Add(button);
         }
+        SetInteractable(specs.Length > 0);
     }
 
     public void ClearButtons()
+    {
+        DestroyButtons();
+        SetInteractable(false);
+    }
+
+    void DestroyButtons()
     {
         foreach (var button in buttons)
             Destroy(button.gameObject);
         buttons.Clear();
     }
 
-    public void SnapInFront()
+    void SetInteractable(bool interactable)
     {
-        Vector3 forward = FlatDirection(head.forward);
-        if (forward == Vector3.zero) return;
-        transform.position = TargetPosition(forward);
-        transform.rotation = Quaternion.LookRotation(forward);
+        foreach (var surface in interactionSurfaces)
+            surface.SetActive(interactable);
     }
 
     void LateUpdate()
@@ -116,53 +127,19 @@ public class TutorialPanel : MonoBehaviour
         if (feedbackText.text.Length > 0 && Time.time > feedbackUntil)
             feedbackText.text = string.Empty;
 
-        Follow();
+        FollowWrist();
     }
 
-    void Follow()
+    void FollowWrist()
     {
-        Vector3 forward = FlatDirection(head.forward);
-        if (forward == Vector3.zero) return;
-
-        Vector3 toPanel = transform.position - head.position;
-        toPanel.y = 0f;
-        bool outOfView = Vector3.Angle(forward, toPanel) > repositionAngle;
-        bool wrongDistance = Mathf.Abs(toPanel.magnitude - distance) > distanceTolerance;
-        if (outOfView || wrongDistance)
-            repositioning = true;
-
-        Vector3 target = TargetPosition(forward);
         float blend = 1f - Mathf.Exp(-followSharpness * Time.deltaTime);
-        Vector3 position = transform.position;
+        transform.position = Vector3.Lerp(transform.position, wrist.position + offsetAboveWrist, blend);
 
-        if (repositioning)
-        {
-            position = Vector3.Lerp(position, target, blend);
-            if ((position - target).sqrMagnitude < 0.0025f)
-                repositioning = false;
-        }
-        else
-        {
-            position.y = Mathf.Lerp(position.y, target.y, blend);
-        }
+        Vector3 fromHead = transform.position - head.position;
+        if (fromHead.sqrMagnitude < 1e-6f) return;
+        transform.rotation = Quaternion.LookRotation(fromHead);
 
-        transform.position = position;
-
-        Vector3 look = FlatDirection(position - head.position);
-        if (look != Vector3.zero)
-            transform.rotation = Quaternion.LookRotation(look);
-    }
-
-    Vector3 TargetPosition(Vector3 flatForward)
-    {
-        Vector3 target = head.position + flatForward * distance;
-        target.y = head.position.y + heightOffset;
-        return target;
-    }
-
-    static Vector3 FlatDirection(Vector3 direction)
-    {
-        direction.y = 0f;
-        return direction.sqrMagnitude < 1e-6f ? Vector3.zero : direction.normalized;
+        float targetAlpha = Vector3.Angle(head.forward, fromHead) <= lookAngle ? 1f : idleAlpha;
+        canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.deltaTime * 4f);
     }
 }

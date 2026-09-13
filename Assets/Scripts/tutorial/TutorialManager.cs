@@ -119,6 +119,7 @@ public class TutorialManager : MonoBehaviour
         else guideLine.Hide();
 
         PlayNarration(step.narration);
+        StartCoroutine(PulseHaptics(true, false, 0.12f));
     }
 
     void EndCurrentStep()
@@ -135,16 +136,16 @@ public class TutorialManager : MonoBehaviour
     {
         panel.ShowFeedback(Praise[Random.Range(0, Praise.Length)], PraiseColor);
         if (stepCompleteClip != null) sfxSource.PlayOneShot(stepCompleteClip);
-        StartCoroutine(PulseHaptics(0.15f));
+        StartCoroutine(PulseHaptics(true, true, 0.15f));
     }
 
-    IEnumerator PulseHaptics(float seconds)
+    IEnumerator PulseHaptics(bool left, bool right, float seconds)
     {
-        OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.LTouch);
-        OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.RTouch);
+        if (left) OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.LTouch);
+        if (right) OVRInput.SetControllerVibration(1f, 0.5f, OVRInput.Controller.RTouch);
         yield return new WaitForSeconds(seconds);
-        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
-        OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
+        if (left) OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.LTouch);
+        if (right) OVRInput.SetControllerVibration(0f, 0f, OVRInput.Controller.RTouch);
     }
 
     void ShowFinal()
