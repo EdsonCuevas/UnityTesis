@@ -8,6 +8,8 @@ public abstract class TutorialStep : MonoBehaviour
     public AudioClip narration;
 
     [Header("Guías")]
+    [Tooltip("Lugar donde se muestra el panel en este paso. Vacío = se queda donde estaba.")]
+    public Transform panelAnchor;
     public ControllerPart[] highlightParts;
     [Tooltip("Destino al que apunta la línea guía del piso.")]
     public Transform worldTarget;

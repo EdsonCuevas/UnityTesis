@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -35,33 +36,45 @@ public class TutorialPanel : MonoBehaviour
     [Tooltip("Objetos ISDK de rayo y toque. Solo se activan cuando hay botones, para no bloquear el movimiento ni los agarres.")]
     public GameObject[] interactionSurfaces;
 
-    [Header("Muñeca")]
+    [Header("Ubicación")]
+    [Tooltip("El panel gira sobre su eje vertical para quedar de frente a esta cabeza.")]
     public Transform head;
-    [Tooltip("LeftControllerAnchor: el panel flota sobre esta mano.")]
-    public Transform wrist;
-    public Vector3 offsetAboveWrist = new Vector3(0f, 0.14f, 0f);
-    public float followSharpness = 20f;
-
-    [Header("Atención")]
     public CanvasGroup canvasGroup;
-    [Tooltip("Ángulo desde la mirada dentro del cual el panel se ve completamente opaco.")]
-    public float lookAngle = 30f;
-    public float idleAlpha = 0.35f;
+    [Tooltip("Duración de cada mitad del desvanecido al cambiar de lugar.")]
+    public float fadeDuration = 0.25f;
+    public float turnSharpness = 6f;
 
     readonly List<Button> buttons = new List<Button>();
     float shownProgress;
     float targetProgress;
     float feedbackUntil;
+    Transform currentAnchor;
+    Coroutine moveRoutine;
 
     void Awake()
     {
         buttonTemplate.gameObject.SetActive(false);
         feedbackText.text = string.Empty;
         skipFill.fillAmount = 0f;
+        canvasGroup.alpha = 1f;
         SetInteractable(false);
     }
 
-    void Start() => transform.position = wrist.position + offsetAboveWrist;
+    public void MoveTo(Transform anchor)
+    {
+        if (anchor == null || anchor == currentAnchor) return;
+
+        bool firstPlacement = currentAnchor == null;
+        currentAnchor = anchor;
+
+        if (moveRoutine != null) StopCoroutine(moveRoutine);
+        if (firstPlacement)
+        {
+            PlaceAt(anchor);
+            return;
+        }
+        moveRoutine = StartCoroutine(FadeToAnchor(anchor));
+    }
 
     public void Show(string title, string body, int stepNumber, int stepCount)
     {
@@ -119,6 +132,32 @@ public class TutorialPanel : MonoBehaviour
             surface.SetActive(interactable);
     }
 
+    IEnumerator FadeToAnchor(Transform anchor)
+    {
+        yield return Fade(0f);
+        PlaceAt(anchor);
+        yield return Fade(1f);
+        moveRoutine = null;
+    }
+
+    IEnumerator Fade(float target)
+    {
+        float start = canvasGroup.alpha;
+        for (float t = 0f; t < fadeDuration; t += Time.deltaTime)
+        {
+            canvasGroup.alpha = Mathf.Lerp(start, target, t / fadeDuration);
+            yield return null;
+        }
+        canvasGroup.alpha = target;
+    }
+
+    void PlaceAt(Transform anchor)
+    {
+        transform.position = anchor.position;
+        Vector3 look = FlatFromHead();
+        transform.rotation = look != Vector3.zero ? Quaternion.LookRotation(look) : anchor.rotation;
+    }
+
     void LateUpdate()
     {
         shownProgress = Mathf.MoveTowards(shownProgress, targetProgress, Time.deltaTime * 1.5f);
@@ -127,19 +166,16 @@ public class TutorialPanel : MonoBehaviour
         if (feedbackText.text.Length > 0 && Time.time > feedbackUntil)
             feedbackText.text = string.Empty;
 
-        FollowWrist();
+        Vector3 look = FlatFromHead();
+        if (look != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look),
+                1f - Mathf.Exp(-turnSharpness * Time.deltaTime));
     }
 
-    void FollowWrist()
+    Vector3 FlatFromHead()
     {
-        float blend = 1f - Mathf.Exp(-followSharpness * Time.deltaTime);
-        transform.position = Vector3.Lerp(transform.position, wrist.position + offsetAboveWrist, blend);
-
-        Vector3 fromHead = transform.position - head.position;
-        if (fromHead.sqrMagnitude < 1e-6f) return;
-        transform.rotation = Quaternion.LookRotation(fromHead);
-
-        float targetAlpha = Vector3.Angle(head.forward, fromHead) <= lookAngle ? 1f : idleAlpha;
-        canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.deltaTime * 4f);
+        Vector3 look = transform.position - head.position;
+        look.y = 0f;
+        return look.sqrMagnitude > 1e-4f ? look.normalized : Vector3.zero;
     }
 }

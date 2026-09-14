@@ -22,6 +22,7 @@ public class TutorialManager : MonoBehaviour
     public TutorialStep[] steps;
 
     [Header("Final")]
+    public Transform finalPanelAnchor;
     public string finalTitle = "¡Tutorial completado!";
     [TextArea(2, 6)] public string finalBody;
     public AudioClip finalNarration;
@@ -112,6 +113,7 @@ public class TutorialManager : MonoBehaviour
     {
         currentStep = step;
         step.Begin(context);
+        panel.MoveTo(step.panelAnchor);
         panel.Show(step.title, step.body, index + 1, steps.Length);
         controllerHints.Show(step.highlightParts);
 
@@ -119,7 +121,6 @@ public class TutorialManager : MonoBehaviour
         else guideLine.Hide();
 
         PlayNarration(step.narration);
-        StartCoroutine(PulseHaptics(true, false, 0.12f));
     }
 
     void EndCurrentStep()
@@ -152,6 +153,7 @@ public class TutorialManager : MonoBehaviour
     {
         finished = true;
         panel.SetSkipVisible(false);
+        panel.MoveTo(finalPanelAnchor);
         panel.Show(finalTitle, finalBody, 0, 0);
         panel.SetProgress(1f);
 
