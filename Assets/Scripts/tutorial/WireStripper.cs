@@ -18,10 +18,13 @@ public class WireStripper : MonoBehaviour
     public float stripLength = 0.025f;
     [Tooltip("Distancia máxima entre las quijadas y el forro para poder apretarlo.")]
     public float gripRadius = 0.04f;
+    [Tooltip("Agarres del tramo final del cable. Si hay alguno, solo se pela mientras una mano sostiene el cable.")]
+    public Grabbable[] cableHandles;
 
     public UnityEvent OnStripped;
 
     public bool IsStripped { get; private set; }
+    public bool WaitingForCableHold { get; private set; }
     public float Progress01 => IsStripped ? 1f : Mathf.Clamp01(slide / stripLength);
 
     Vector3 insulationStart;
@@ -60,6 +63,15 @@ public class WireStripper : MonoBehaviour
         if (!clamping) return;
 
         OVRInput.SetControllerVibration(0.3f, 0.25f, clampHand);
+
+        WaitingForCableHold = !IsCableHeld();
+        if (WaitingForCableHold)
+        {
+            clampStartAlong = along;
+            slideAtClamp = slide;
+            return;
+        }
+
         slide = Mathf.Max(slide, slideAtClamp + along - clampStartAlong);
         insulation.localPosition = insulationStart + Vector3.forward * Mathf.Min(slide, stripLength);
 
@@ -82,6 +94,15 @@ public class WireStripper : MonoBehaviour
         if (clamping)
             OVRInput.SetControllerVibration(0f, 0f, clampHand);
         clamping = false;
+        WaitingForCableHold = false;
+    }
+
+    bool IsCableHeld()
+    {
+        if (cableHandles.Length == 0) return true;
+        foreach (var handle in cableHandles)
+            if (handle.SelectingPointsCount > 0) return true;
+        return false;
     }
 
     OVRInput.Controller NearestHand()
