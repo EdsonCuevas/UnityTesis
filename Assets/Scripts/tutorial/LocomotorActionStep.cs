@@ -11,10 +11,15 @@ public class LocomotorActionStep : TutorialStep
     public LocomotorAction action;
     [Tooltip("Segundos que debe permanecer agachado antes de levantarse.")]
     public float crouchSeconds = 1f;
+    [Tooltip("Altura mínima que debe subir la cabeza después de presionar A para contar el salto.")]
+    public float minJumpRise = 0.08f;
+    [Tooltip("Segundos después de presionar A en los que se espera ver la subida.")]
+    public float jumpWindowSeconds = 1f;
 
     float crouchedFor;
     bool jumped;
-    bool wasGrounded;
+    float pressTime = float.NegativeInfinity;
+    float pressHeadY;
 
     bool CrouchDone => crouchedFor >= crouchSeconds && !Context.Locomotor.IsCrouching;
 
@@ -34,20 +39,24 @@ public class LocomotorActionStep : TutorialStep
         base.Begin(context);
         crouchedFor = 0f;
         jumped = false;
-        wasGrounded = context.Locomotor.IsGrounded;
+        pressTime = float.NegativeInfinity;
     }
 
     public override void Tick()
     {
-        var locomotor = Context.Locomotor;
-
         if (action == LocomotorAction.Jump)
         {
-            if (wasGrounded && !locomotor.IsGrounded && locomotor.Velocity.y > 0.1f)
+            float headY = Context.Head.position.y;
+            if (OVRInput.GetDown(OVRInput.Button.One, OVRInput.Controller.RTouch))
+            {
+                pressTime = Time.time;
+                pressHeadY = headY;
+            }
+
+            if (Time.time - pressTime <= jumpWindowSeconds && headY - pressHeadY >= minJumpRise)
                 jumped = true;
-            wasGrounded = locomotor.IsGrounded;
         }
-        else if (locomotor.IsCrouching)
+        else if (Context.Locomotor.IsCrouching)
         {
             crouchedFor += Time.deltaTime;
         }
