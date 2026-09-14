@@ -67,6 +67,7 @@
     <Compile Include="Assets\Scripts\tutorial\ReachZoneStep.cs" />
     <Compile Include="Assets\Scripts\personaje\FootstepsVR.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortSettings.cs" />
+    <Compile Include="Assets\Scripts\tutorial\StripWireStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\LocomotorActionStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireConnectorType.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialStep.cs" />
@@ -81,6 +82,7 @@
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
     <Compile Include="Assets\Scripts\tutorial\GuideLine.cs" />
+    <Compile Include="Assets\Scripts\tutorial\WireStripper.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
