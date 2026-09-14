@@ -36,19 +36,26 @@ public class ConduitPathGuide : MonoBehaviour
     public int tipGrabLinks = 8;
 
     [Header("Empuje")]
-    [Tooltip("Distancia máxima, a lo largo del cable, entre la mano y la entrada para que el empuje se transmita.")]
+    [Tooltip("Distancia máxima entre la mano y la entrada del ducto para que el empuje se transmita.")]
     public float maxPushReach = 0.4f;
-    [Tooltip("Movimiento mínimo por paso de física que cuenta como empuje; filtra la vibración del tracking.")]
-    public float jitterDeadzone = 0.0015f;
+    [Tooltip("Velocidad mínima de la mano (suavizada) para contar como empuje; filtra la vibración del tracking.")]
+    public float minPushSpeed = 0.02f;
+    [Tooltip("Tiempo de suavizado de la velocidad de la mano (segundos).")]
+    public float pushSmoothing = 0.08f;
+    [Tooltip("Qué tan cerca de la entrada puede llegar la mano antes de dejar de empujar.")]
+    public float handStopDistance = 0.04f;
     public float maxFeedSpeed = 0.6f;
     [Tooltip("Resistencia extra por cada 90° de curva que ya recorrió la punta.")]
     public float bendResistance = 0.5f;
     [Tooltip("Cable libre extra que debe quedar afuera además de la distancia recta al inicio del cable.")]
     public float slackMargin = 0.05f;
 
-    [Header("Vibración (opcional)")]
+    [Header("Manos")]
+    [Tooltip("LeftControllerAnchor: se mide su movimiento mientras empuja el cable.")]
     public Transform leftHand;
+    [Tooltip("RightControllerAnchor: se mide su movimiento mientras empuja el cable.")]
     public Transform rightHand;
+    [Range(0f, 1f)] public float gripThreshold = 0.5f;
 
     [Header("Eventos")]
     public UnityEvent OnEngaged;
@@ -74,8 +81,10 @@ public class ConduitPathGuide : MonoBehaviour
     int _inside;
     float _progress;
 
-    int _heldIndex = -1;
-    Vector3 _heldPrevPos;
+    Transform _pushHand;
+    OVRInput.Controller _pushController = OVRInput.Controller.None;
+    Vector3 _pushPrevPos;
+    float _pushVelocity;
     OVRInput.Controller _vibratingHand = OVRInput.Controller.None;
 
     void Start()
@@ -88,8 +97,16 @@ public class ConduitPathGuide : MonoBehaviour
         }
 
         BuildPath();
-        if (wireController != null)
-            BuildChain();
+        if (wireController == null) return;
+
+        if (leftHand == null || rightHand == null)
+        {
+            Debug.LogError("[ConduitPathGuide] Asigna leftHand y rightHand (anclas de los controles).", this);
+            enabled = false;
+            return;
+        }
+
+        BuildChain();
     }
 
     void OnDisable() => UpdateHaptics(0f);
@@ -130,7 +147,7 @@ public class ConduitPathGuide : MonoBehaviour
         IsEngaged = true;
         _progress = 0f;
         _inside = 0;
-        _heldIndex = -1;
+        DetachHand();
         CaptureLink(0);
         Status = FeedStatus.Feeding;
         OnEngaged.Invoke();
@@ -138,34 +155,72 @@ public class ConduitPathGuide : MonoBehaviour
 
     float ReadFeed()
     {
-        int held = NearestHeldOutsideLink();
-        if (held < 0)
+        if (_pushHand == null && !TryAttachHand())
+            return 0f;
+
+        bool gripping = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, _pushController) >= gripThreshold;
+        if (!gripping)
         {
-            _heldIndex = -1;
+            DetachHand();
             Status = FeedStatus.Feeding;
             return 0f;
         }
 
-        Vector3 position = _chain[held].position;
-        if (held != _heldIndex)
+        Vector3 entry = _samples[0];
+        Vector3 hand = _pushHand.position;
+        if (Vector3.Distance(hand, entry) > maxPushReach)
         {
-            _heldIndex = held;
-            _heldPrevPos = position;
-            return 0f;
-        }
-
-        Vector3 delta = position - _heldPrevPos;
-        _heldPrevPos = position;
-
-        if ((held - _inside + 1) * _spacing > maxPushReach)
-        {
+            DetachHand();
             Status = FeedStatus.NeedCloserGrip;
             return 0f;
         }
 
+        Vector3 toEntry = entry - hand;
+        Vector3 axis = toEntry.magnitude > 0.06f ? toEntry.normalized : TangentAt(0f);
+        float along = Vector3.Dot(hand - _pushPrevPos, axis);
+        _pushPrevPos = hand;
+
+        // Smoothed speed rejects tracking jitter (zero-mean) without discarding real motion.
+        float dt = Time.fixedDeltaTime;
+        _pushVelocity = Mathf.Lerp(_pushVelocity, along / dt, 1f - Mathf.Exp(-dt / pushSmoothing));
         Status = FeedStatus.Feeding;
-        float along = Vector3.Dot(delta, TangentAt(0f));
-        return Mathf.Sign(along) * Mathf.Max(0f, Mathf.Abs(along) - jitterDeadzone);
+        if (Mathf.Abs(_pushVelocity) < minPushSpeed) return 0f;
+
+        bool handAtEntry = Vector3.Dot(hand - entry, TangentAt(0f)) > -handStopDistance;
+        if (along > 0f && handAtEntry) return 0f;
+
+        return along;
+    }
+
+    bool TryAttachHand()
+    {
+        int held = NearestHeldOutsideLink();
+        if (held < 0)
+        {
+            Status = FeedStatus.Feeding;
+            return false;
+        }
+
+        Vector3 linkPosition = _chain[held].position;
+        if (Vector3.Distance(linkPosition, _samples[0]) > maxPushReach)
+        {
+            Status = FeedStatus.NeedCloserGrip;
+            return false;
+        }
+
+        bool left = Vector3.Distance(linkPosition, leftHand.position) < Vector3.Distance(linkPosition, rightHand.position);
+        _pushHand = left ? leftHand : rightHand;
+        _pushController = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
+        _pushPrevPos = _pushHand.position;
+        _pushVelocity = 0f;
+        return true;
+    }
+
+    void DetachHand()
+    {
+        _pushHand = null;
+        _pushController = OVRInput.Controller.None;
+        _pushVelocity = 0f;
     }
 
     void ApplyFeed(float feed)
@@ -254,7 +309,7 @@ public class ConduitPathGuide : MonoBehaviour
     {
         while (_inside > 0) ReleaseLink(_inside - 1);
         IsEngaged = false;
-        _heldIndex = -1;
+        DetachHand();
         Status = FeedStatus.WaitingForTip;
         UpdateHaptics(0f);
         OnDisengaged.Invoke();
@@ -276,6 +331,7 @@ public class ConduitPathGuide : MonoBehaviour
     {
         IsComplete = true;
         Status = FeedStatus.Complete;
+        DetachHand();
         UpdateHaptics(0f);
 
         if (LevelProgressManager.Instance != null)
@@ -286,16 +342,7 @@ public class ConduitPathGuide : MonoBehaviour
 
     void UpdateHaptics(float amplitude)
     {
-        if (leftHand == null || rightHand == null) return;
-
-        var hand = OVRInput.Controller.None;
-        if (amplitude > 0f && _heldIndex >= 0)
-        {
-            Vector3 held = _chain[_heldIndex].position;
-            hand = Vector3.Distance(held, leftHand.position) < Vector3.Distance(held, rightHand.position)
-                ? OVRInput.Controller.LTouch
-                : OVRInput.Controller.RTouch;
-        }
+        var hand = amplitude > 0f ? _pushController : OVRInput.Controller.None;
 
         if (_vibratingHand != OVRInput.Controller.None && _vibratingHand != hand)
             OVRInput.SetControllerVibration(0f, 0f, _vibratingHand);
