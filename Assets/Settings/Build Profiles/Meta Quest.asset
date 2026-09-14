@@ -174,8 +174,10 @@ MonoBehaviour:
         type: 3}'
     - line: '|   - {fileID: 11400000, guid: 314b889d659e24840b34ff51a4594341, type:
         2}'
-    - line: '|   - {fileID: 11400000, guid: 7e3bb12a73226924f9084face47e1fed, type:
-        2}'
+    - line: '|   - {fileID: -1338441584188070888, guid: 05d1d07a5acd4074d9f62711a0241cd9,
+        type: 2}'
+    - line: '|   - {fileID: -1852873580070274196, guid: 535f2e49dbfba824e91c4c548015ccbf,
+        type: 2}'
     - line: '|   metroInputSource: 0'
     - line: '|   wsaTransparentSwapchain: 0'
     - line: '|   m_HolographicPauseOnTrackingLoss: 1'
@@ -562,7 +564,7 @@ MonoBehaviour:
     - line: '|   m_BuildTargetShaderSettings: []'
     - line: '|   m_BuildTargetGraphicsJobs:'
     - line: '|   - m_BuildTarget: AndroidPlayer'
-    - line: '|     m_GraphicsJobs: 1'
+    - line: '|     m_GraphicsJobs: 0'
     - line: '|   m_BuildTargetGraphicsJobMode:'
     - line: '|   - m_BuildTarget: AndroidPlayer'
     - line: '|     m_GraphicsJobMode: 1'
