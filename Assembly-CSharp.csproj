@@ -79,6 +79,7 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\ConduitStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelProgressManager.cs" />
+    <Compile Include="Assets\WireBuilder\Scripts\GuiaController\GuideTape.cs" />
     <Compile Include="Assets\Scripts\nivel_1\FollowTarget.cs" />
     <Compile Include="Assets\Scripts\WallZoneTransparency.cs" />
     <Compile Include="Assets\Scripts\nivel_1\UI\LevelUIManager.cs" />
@@ -90,6 +91,7 @@
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
     <Compile Include="Assets\Scripts\nivel_1\GuidePullStep.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\GuideTapeStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\GuideLine.cs" />
     <Compile Include="Assets\Scripts\tutorial\WireStripper.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelManager.cs" />

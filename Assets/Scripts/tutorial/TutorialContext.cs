@@ -20,6 +20,10 @@ public class TutorialContext
     // En modo evaluación los avisos se cuentan pero no se muestran.
     public bool HintsEnabled = true;
 
+    // Los asigna el manager: narración que interrumpe lo que suena y voz de un aviso, que espera su turno.
+    public System.Action<AudioClip> Narrate;
+    public System.Action<string> SpeakHint;
+
     public int HintCount { get; private set; }
 
     string lastHint;
@@ -33,7 +37,8 @@ public class TutorialContext
         lastHint = text;
         lastHintTime = Time.time;
 
-        if (HintsEnabled)
-            Panel.ShowFeedback(text, HintColor, seconds);
+        if (!HintsEnabled) return;
+        Panel.ShowFeedback(text, HintColor, seconds);
+        SpeakHint?.Invoke(text);
     }
 }

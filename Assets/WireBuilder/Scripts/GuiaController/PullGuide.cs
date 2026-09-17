@@ -24,6 +24,8 @@ public class PullGuide : MonoBehaviour
     public ConduitPathGuide path;
     [Tooltip("Cables que se enganchan a la cabeza de la guía. Deben tener desactivado handFeed.")]
     public ConduitPathGuide[] cables;
+    [Tooltip("Encintado del amarre. Si está asignado, no se puede jalar hasta encintarlo.")]
+    public GuideTape tape;
 
     [Header("Guía")]
     public Transform head;
@@ -92,6 +94,8 @@ public class PullGuide : MonoBehaviour
     public float LastSlipTime { get; private set; } = float.NegativeInfinity;
     /// <summary>Último intento de jalar sin tener todos los cables enganchados.</summary>
     public float LastBlockedTime { get; private set; } = float.NegativeInfinity;
+    /// <summary>Último intento de jalar sin haber encintado el amarre.</summary>
+    public float LastUntapedTime { get; private set; } = float.NegativeInfinity;
     /// <summary>Último momento en que un cable ya no alcanzó y frenó la guía.</summary>
     public float LastOutOfSlackTime { get; private set; } = float.NegativeInfinity;
     /// <summary>Último momento en que alguien acercó a la cabeza de la guía el extremo que va al medidor.</summary>
@@ -249,6 +253,11 @@ public class PullGuide : MonoBehaviour
         if (!AllHooked)
         {
             LastBlockedTime = Time.time;
+            return;
+        }
+        if (tape != null && !tape.IsTaped)
+        {
+            LastUntapedTime = Time.time;
             return;
         }
 

@@ -18,6 +18,9 @@ public class LevelManager : GuidedFlowManager
     public Transform introPanelAnchor;
     public Transform resultsPanelAnchor;
     public AudioClip levelCompleteClip;
+    [Tooltip("Se narra en ambos modos, igual que los resultados.")]
+    public AudioClip introNarration;
+    public AudioClip resultsNarration;
     public string menuSceneName = "UIMenu";
 
     public Mode CurrentMode { get; private set; }
@@ -33,6 +36,7 @@ public class LevelManager : GuidedFlowManager
         panel.SetSkipVisible(false);
         panel.MoveTo(introPanelAnchor);
         panel.Show(levelTitle, introBody, 0, 0);
+        PlayNarration(introNarration);
         panel.SetButtons(
             new TutorialPanel.ButtonSpec("Modo práctica", () => BeginLevel(Mode.Practica)),
             new TutorialPanel.ButtonSpec("Modo evaluación", () => BeginLevel(Mode.Evaluacion)));
@@ -84,6 +88,7 @@ public class LevelManager : GuidedFlowManager
         panel.Show("¡Nivel completado!", body, 0, 0);
         panel.SetProgress(1f);
         if (levelCompleteClip != null) sfxSource.PlayOneShot(levelCompleteClip);
+        PlayNarration(resultsNarration);
 
         panel.SetButtons(
             new TutorialPanel.ButtonSpec("Reintentar", () => LoadScene(SceneManager.GetActiveScene().name)),

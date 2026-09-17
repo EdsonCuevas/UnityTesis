@@ -19,6 +19,10 @@ public class GuidePullStep : TutorialStep
     [TextArea(2, 6)] public string jamBody =
         "La guía se atoró. Ve al murete, agarra un cable justo debajo de donde entra al medidor " +
         "y empújalo hacia arriba, hacia el medidor, con movimientos cortos. Los tres cables entran juntos.";
+    [Tooltip("Narración de la descripción del atasco.")]
+    public AudioClip jamNarration;
+    [Tooltip("Narración al destrabarse la guía.")]
+    public AudioClip unjamNarration;
 
     float nextHintTime;
     bool wasJammed;
@@ -58,6 +62,7 @@ public class GuidePullStep : TutorialStep
                 ? (guide.IsJammed ? "Un cable ya no alcanza: acerca su rollo al medidor" : "Ya empujaste suficiente cable: regresa al registro a jalar la guía") :
             Time.time - guide.LastSlipTime < 1f ? "La guía se resbaló: jala más despacio en las curvas" :
             Time.time - guide.LastBlockedTime < 1f ? "Engancha los tres cables a la guía antes de jalar" :
+            Time.time - guide.LastUntapedTime < 1f ? "Encinta el amarre de los cables antes de jalar la guía" :
             Time.time - guide.LastOutOfSlackTime < 1f ? "Un cable ya no alcanza: acerca su rollo al medidor" :
             null;
 
@@ -76,6 +81,8 @@ public class GuidePullStep : TutorialStep
 
         if (!Context.GuidesVisible) return;
         Context.Panel.SetBody(jammed ? jamBody : body);
+        AudioClip narrationClip = jammed ? jamNarration : unjamNarration;
+        if (narrationClip != null) Context.Narrate?.Invoke(narrationClip);
         SetVisible(!jammed);
         SetJamVisible(jammed);
 

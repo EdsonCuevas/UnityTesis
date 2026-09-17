@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Oculus.Interaction.Locomotion;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -30,6 +31,21 @@ public abstract class GuidedFlowManager : MonoBehaviour
     public AudioSource sfxSource;
     public AudioClip stepCompleteClip;
 
+    [System.Serializable]
+    public class VoiceCue
+    {
+        [TextArea(1, 3)] public string text;
+        public AudioClip clip;
+    }
+
+    [Header("Avisos hablados")]
+    [Tooltip("Voz de cada aviso; se busca por el texto exacto que muestra el panel.")]
+    public VoiceCue[] voiceCues;
+    [Tooltip("Un aviso que llega mientras se narra espera a lo más este tiempo; si no, se descarta.")]
+    public float hintMaxWait = 3f;
+    [Tooltip("Tiempo mínimo antes de volver a decir el mismo aviso.")]
+    public float hintRepeatSeconds = 10f;
+
     [Header("Ritmo")]
     [Tooltip("Evita que un paso se complete antes de que el jugador alcance a leerlo.")]
     public float minSecondsPerStep = 1.5f;
@@ -47,6 +63,11 @@ public abstract class GuidedFlowManager : MonoBehaviour
     Coroutine flow;
     bool loading;
 
+    Coroutine hintVoice;
+    AudioClip pendingHint;
+    float pendingHintSince;
+    readonly Dictionary<AudioClip, float> hintSpokenAt = new Dictionary<AudioClip, float>();
+
     protected virtual void Start()
     {
         Context = new TutorialContext
@@ -57,7 +78,9 @@ public abstract class GuidedFlowManager : MonoBehaviour
             RightHand = rightHand,
             Locomotor = locomotor,
             Panel = panel,
-            GuideLine = guideLine
+            GuideLine = guideLine,
+            Narrate = PlayNarration,
+            SpeakHint = QueueHintVoice
         };
 
         foreach (var step in steps)
@@ -107,6 +130,7 @@ public abstract class GuidedFlowManager : MonoBehaviour
     void BeginStep(TutorialStep step, int index)
     {
         CurrentStep = step;
+        pendingHint = null;
         Context.GuidesVisible = ShowGuides;
         step.Begin(Context);
         panel.MoveTo(step.panelAnchor);
@@ -161,6 +185,40 @@ public abstract class GuidedFlowManager : MonoBehaviour
         narrationSource.Play();
     }
 
+    void QueueHintVoice(string text)
+    {
+        AudioClip clip = FindHintClip(text);
+        if (clip == null) return;
+        if (hintSpokenAt.TryGetValue(clip, out float spokenAt) && Time.time - spokenAt < hintRepeatSeconds) return;
+
+        pendingHint = clip;
+        pendingHintSince = Time.time;
+        if (hintVoice == null) hintVoice = StartCoroutine(SpeakPendingHint());
+    }
+
+    /// <summary>Dice el aviso cuando termina la narración, sin cortarla.</summary>
+    IEnumerator SpeakPendingHint()
+    {
+        while (pendingHint != null && narrationSource.isPlaying && Time.time - pendingHintSince <= hintMaxWait)
+            yield return null;
+
+        if (pendingHint != null && !narrationSource.isPlaying)
+        {
+            hintSpokenAt[pendingHint] = Time.time;
+            PlayNarration(pendingHint);
+        }
+        pendingHint = null;
+        hintVoice = null;
+    }
+
+    AudioClip FindHintClip(string text)
+    {
+        if (voiceCues == null) return null;
+        foreach (var cue in voiceCues)
+            if (cue.clip != null && cue.text == text) return cue.clip;
+        return null;
+    }
+
     protected void LoadScene(string sceneName)
     {
         if (loading) return;
@@ -170,6 +228,7 @@ public abstract class GuidedFlowManager : MonoBehaviour
 
     IEnumerator FadeAndLoad(string sceneName)
     {
+        pendingHint = null;
         narrationSource.Stop();
         if (screenFade != null)
         {
