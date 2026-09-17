@@ -17,13 +17,15 @@ public class ConduitStep : TutorialStep
 
     public override void Tick()
     {
-        string hint = conduit.Status switch
-        {
-            ConduitPathGuide.FeedStatus.TipMisaligned => "Apunta la punta del cable hacia la entrada del tubo",
-            ConduitPathGuide.FeedStatus.NeedCloserGrip => "Sujeta el cable más cerca de la entrada para empujarlo",
-            ConduitPathGuide.FeedStatus.OutOfSlack => "Ya no alcanza el cable: acerca el resto al tubo",
-            _ => null
-        };
+        string hint = Time.time - conduit.LastSlipTime < 1f
+            ? "El cable se resbaló: empuja más despacio en las curvas"
+            : conduit.Status switch
+            {
+                ConduitPathGuide.FeedStatus.TipMisaligned => "Apunta la punta del cable hacia la entrada del tubo",
+                ConduitPathGuide.FeedStatus.NeedCloserGrip => "Sujeta el cable más cerca de la entrada para empujarlo",
+                ConduitPathGuide.FeedStatus.OutOfSlack => "Ya no alcanza el cable: acerca el resto al tubo",
+                _ => null
+            };
 
         if (hint == null || Time.time < nextHintTime) return;
         Context.ShowHint(hint);

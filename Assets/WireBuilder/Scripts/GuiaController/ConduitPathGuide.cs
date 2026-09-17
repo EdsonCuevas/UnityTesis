@@ -12,6 +12,7 @@ public class ConduitPathGuide : MonoBehaviour
         Feeding,
         NeedCloserGrip,
         OutOfSlack,
+        Slipped,
         Complete
     }
 
@@ -23,6 +24,8 @@ public class ConduitPathGuide : MonoBehaviour
 
     [Header("Cable")]
     public WireController wireController;
+    [Tooltip("Desactívalo cuando el cable avanza arrastrado por la guía jalacables en lugar de empujarse a mano.")]
+    public bool handFeed = true;
 
     [Header("Entrada")]
     [Tooltip("Distancia máxima entre la punta del cable y la entrada para introducirla.")]
@@ -41,9 +44,14 @@ public class ConduitPathGuide : MonoBehaviour
     public float pushSmoothing = 0.08f;
     [Tooltip("Qué tan cerca de la entrada puede llegar la mano antes de dejar de empujar.")]
     public float handStopDistance = 0.04f;
+    [Tooltip("Velocidad máxima de empuje en tramo recto (m/s).")]
     public float maxFeedSpeed = 0.6f;
-    [Tooltip("Resistencia extra por cada 90° de curva que ya recorrió la punta.")]
+    [Tooltip("Resistencia extra por cada 90° de curva que ya recorrió la punta: divide la velocidad máxima de empuje.")]
     public float bendResistance = 0.5f;
+    [Tooltip("Cuánto puede pasarse la mano de la velocidad máxima antes de que el cable se le resbale.")]
+    public float slipTolerance = 1.4f;
+    [Tooltip("Segundos que el eslabón resbalado no se puede volver a agarrar.")]
+    public float slipRegrabDelay = 0.35f;
     [Tooltip("Cable libre extra que debe quedar afuera además de la distancia recta al inicio del cable.")]
     public float slackMargin = 0.05f;
 
@@ -58,11 +66,16 @@ public class ConduitPathGuide : MonoBehaviour
     public UnityEvent OnEngaged;
     public UnityEvent OnDisengaged;
     public UnityEvent OnCompleted;
+    public UnityEvent OnSlipped;
 
     public bool IsEngaged { get; private set; }
     public bool IsComplete { get; private set; }
     public FeedStatus Status { get; private set; }
+    public float LastSlipTime { get; private set; } = float.NegativeInfinity;
     public float Progress01 => _pathLength > 0f ? _progress / _pathLength : 0f;
+    public float PathLength { get { EnsurePath(); return _pathLength; } }
+    /// <summary>Punta del cable (eslabón que entra primero). Null antes de Start.</summary>
+    public Transform Tip => _chain != null ? _chain[0] : null;
 
     readonly List<Vector3> _samples = new List<Vector3>();
     readonly List<float> _cumLength = new List<float>();
@@ -79,10 +92,13 @@ public class ConduitPathGuide : MonoBehaviour
     float _progress;
 
     Transform _pushHand;
+    int _pushLink = -1;
     OVRInput.Controller _pushController = OVRInput.Controller.None;
     Vector3 _pushPrevPos;
     float _pushVelocity;
     OVRInput.Controller _vibratingHand = OVRInput.Controller.None;
+    int _slippedLink = -1;
+    float _slipRegrabTime;
 
     void Start()
     {
@@ -93,7 +109,7 @@ public class ConduitPathGuide : MonoBehaviour
             return;
         }
 
-        BuildPath();
+        EnsurePath();
         if (wireController == null) return;
 
         if (leftHand == null || rightHand == null)
@@ -112,13 +128,19 @@ public class ConduitPathGuide : MonoBehaviour
     {
         if (_chain == null || IsComplete) return;
 
+        if (_slippedLink >= 0 && Time.time >= _slipRegrabTime)
+        {
+            if (_slippedLink >= _inside) SetInteractable(_slippedLink, true);
+            _slippedLink = -1;
+        }
+
         if (!IsEngaged)
         {
-            TryEngage();
+            if (handFeed) TryEngage();
             return;
         }
 
-        ApplyFeed(ReadFeed());
+        if (handFeed) ApplyFeed(ReadFeed());
         if (!IsEngaged) return;
 
         PlaceInsideLinks();
@@ -141,6 +163,38 @@ public class ConduitPathGuide : MonoBehaviour
             return;
         }
 
+        Engage();
+    }
+
+    /// <summary>Engancha la punta a la guía jalacables: entra al ducto sin revisar mano ni orientación.</summary>
+    public bool HookToGuide()
+    {
+        if (_chain == null || IsEngaged || IsComplete) return false;
+        Engage();
+        return true;
+    }
+
+    /// <summary>Avance máximo posible sin que el cable que queda afuera deje de alcanzar su inicio.</summary>
+    public float MaxReachableProgress()
+    {
+        float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
+        int allowedInside = _chain.Length - Mathf.CeilToInt(needed / _spacing);
+        return Mathf.Clamp(allowedInside * _spacing - 0.0001f, 0f, _pathLength);
+    }
+
+    /// <summary>Lleva la punta hasta esa distancia del recorrido (solo avanza). Lo usa la guía jalacables.</summary>
+    public void FeedTo(float distance)
+    {
+        if (!IsEngaged || IsComplete) return;
+
+        float reachable = MaxReachableProgress();
+        Status = distance > reachable ? FeedStatus.OutOfSlack : FeedStatus.Feeding;
+        float feed = Mathf.Min(distance, reachable) - _progress;
+        if (feed > 0f) Advance(feed);
+    }
+
+    void Engage()
+    {
         IsEngaged = true;
         _progress = 0f;
         _inside = 0;
@@ -186,7 +240,35 @@ public class ConduitPathGuide : MonoBehaviour
         bool handAtEntry = Vector3.Dot(hand - entry, TangentAt(0f)) > -handStopDistance;
         if (along > 0f && handAtEntry) return 0f;
 
+        // The cable only enters as fast as the bends allow. Pushing faster makes it slip out of
+        // the hand instead of feeding less than the hand moved, which would pile it up outside.
+        if (_pushVelocity > SpeedLimit() * slipTolerance)
+        {
+            Slip();
+            return 0f;
+        }
+
         return along;
+    }
+
+    float Resistance() => 1f + bendResistance * BendAt(_progress) / 90f;
+
+    float SpeedLimit() => maxFeedSpeed / Resistance();
+
+    void Slip()
+    {
+        int link = _pushLink;
+        DetachHand();
+        if (link >= _inside)
+        {
+            SetInteractable(link, false);
+            _slippedLink = link;
+            _slipRegrabTime = Time.time + slipRegrabDelay;
+        }
+        Status = FeedStatus.Slipped;
+        LastSlipTime = Time.time;
+        UpdateHaptics(0f);
+        OnSlipped.Invoke();
     }
 
     bool TryAttachHand()
@@ -207,6 +289,7 @@ public class ConduitPathGuide : MonoBehaviour
 
         bool left = Vector3.Distance(linkPosition, leftHand.position) < Vector3.Distance(linkPosition, rightHand.position);
         _pushHand = left ? leftHand : rightHand;
+        _pushLink = held;
         _pushController = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
         _pushPrevPos = _pushHand.position;
         _pushVelocity = 0f;
@@ -216,6 +299,7 @@ public class ConduitPathGuide : MonoBehaviour
     void DetachHand()
     {
         _pushHand = null;
+        _pushLink = -1;
         _pushController = OVRInput.Controller.None;
         _pushVelocity = 0f;
     }
@@ -223,11 +307,12 @@ public class ConduitPathGuide : MonoBehaviour
     void ApplyFeed(float feed)
     {
         float maxStep = maxFeedSpeed * Time.fixedDeltaTime;
-        float resistance = 1f + bendResistance * BendAt(_progress) / 90f;
+        float resistance = Resistance();
+        float pushStep = SpeedLimit() * slipTolerance * Time.fixedDeltaTime;
 
         if (feed > 0f)
         {
-            feed = Mathf.Min(feed / resistance, maxStep);
+            feed = Mathf.Min(feed, pushStep);
             float outsideAfter = (_chain.Length - LinksInsideFor(_progress + feed)) * _spacing;
             float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
             if (outsideAfter < needed)
@@ -241,8 +326,17 @@ public class ConduitPathGuide : MonoBehaviour
             feed = Mathf.Max(feed, -maxStep);
         }
 
-        UpdateHaptics(feed > 0f ? Mathf.Clamp(0.15f + 0.3f * (resistance - 1f), 0.15f, 0.6f) : 0f);
+        // Vibration grows with the bends and as the hand nears the slipping speed.
+        float nearSlip = Mathf.Clamp01(_pushVelocity / (SpeedLimit() * slipTolerance));
+        UpdateHaptics(feed > 0f
+            ? Mathf.Clamp(0.15f + 0.25f * (resistance - 1f) + 0.35f * nearSlip * nearSlip, 0.15f, 0.9f)
+            : 0f);
 
+        Advance(feed);
+    }
+
+    void Advance(float feed)
+    {
         _progress = Mathf.Clamp(_progress + feed, 0f, _pathLength);
         int target = LinksInsideFor(_progress);
         while (_inside < target) CaptureLink(_inside);
@@ -281,8 +375,7 @@ public class ConduitPathGuide : MonoBehaviour
     {
         // Disabling the interactables releases the hand; Grabbable then restores
         // isKinematic, so the conduit re-locks it afterwards (and every physics step).
-        foreach (var interactable in _interactables[index])
-            interactable.enabled = false;
+        SetInteractable(index, false);
 
         var body = _bodies[index];
         if (!body.isKinematic)
@@ -297,9 +390,14 @@ public class ConduitPathGuide : MonoBehaviour
     void ReleaseLink(int index)
     {
         _bodies[index].isKinematic = false;
-        foreach (var interactable in _interactables[index])
-            interactable.enabled = true;
+        if (index != _slippedLink) SetInteractable(index, true);
         _inside = index;
+    }
+
+    void SetInteractable(int index, bool enabled)
+    {
+        foreach (var interactable in _interactables[index])
+            interactable.enabled = enabled;
     }
 
     void Disengage()
@@ -445,8 +543,14 @@ public class ConduitPathGuide : MonoBehaviour
         return low;
     }
 
-    Vector3 PositionAt(float distance)
+    void EnsurePath()
     {
+        if (_samples.Count < 2) BuildPath();
+    }
+
+    public Vector3 PositionAt(float distance)
+    {
+        EnsurePath();
         distance = Mathf.Clamp(distance, 0f, _pathLength);
         int i = SampleIndex(distance);
         float span = _cumLength[i + 1] - _cumLength[i];
@@ -454,13 +558,19 @@ public class ConduitPathGuide : MonoBehaviour
         return Vector3.Lerp(_samples[i], _samples[i + 1], t);
     }
 
-    Vector3 TangentAt(float distance)
+    public Vector3 TangentAt(float distance)
     {
+        EnsurePath();
         int i = SampleIndex(Mathf.Clamp(distance, 0f, _pathLength));
         return (_samples[i + 1] - _samples[i]).normalized;
     }
 
-    float BendAt(float distance) => _cumBend[SampleIndex(Mathf.Clamp(distance, 0f, _pathLength))];
+    /// <summary>Grados de curva acumulados desde la entrada hasta esa distancia.</summary>
+    public float BendAt(float distance)
+    {
+        EnsurePath();
+        return _cumBend[SampleIndex(Mathf.Clamp(distance, 0f, _pathLength))];
+    }
 
     void OnDrawGizmos()
     {
