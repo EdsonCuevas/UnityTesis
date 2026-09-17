@@ -431,10 +431,15 @@ public class WireController : MonoBehaviour
 
         //Render the wire.
         List<Vector3> tempPos = new List<Vector3>();
+        // Include the anchors so the rendered wire reaches its ends instead of stopping one segment short.
+        if (usePhysics && starAnchorTemp != null)
+            tempPos.Add(starAnchorTemp.localPosition);
         foreach (Transform pos in segments)
         {
             tempPos.Add(pos.localPosition);
         }
+        if (usePhysics && endAnchorTemp != null)
+            tempPos.Add(endAnchorTemp.localPosition);
         ropeMesh.SetPositions(tempPos.ToArray());
     }
 

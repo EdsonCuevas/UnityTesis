@@ -93,6 +93,7 @@
     <Compile Include="Assets\Scripts\tutorial\WireStripper.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelManager.cs" />
     <Compile Include="Assets\Scripts\nivel_1\ResetIfFallen.cs" />
+    <Compile Include="Assets\WireBuilder\Scripts\WireEndAligner.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
