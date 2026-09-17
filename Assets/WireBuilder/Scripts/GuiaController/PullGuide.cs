@@ -84,6 +84,8 @@ public class PullGuide : MonoBehaviour
     public float LastBlockedTime { get; private set; } = float.NegativeInfinity;
     /// <summary>Último momento en que un cable ya no alcanzó y frenó la guía.</summary>
     public float LastOutOfSlackTime { get; private set; } = float.NegativeInfinity;
+    /// <summary>Último momento en que alguien acercó a la cabeza de la guía el extremo que va al medidor.</summary>
+    public float LastWrongEndTime { get; private set; } = float.NegativeInfinity;
 
     public Vector3 HookPoint => path.PositionAt(0f) + entryHeadOffset;
 
@@ -258,9 +260,14 @@ public class PullGuide : MonoBehaviour
     {
         Vector3 hook = HookPoint;
         foreach (var cable in cables)
-            if (!cable.IsEngaged && !cable.IsComplete && cable.Tip != null
-                && Vector3.Distance(cable.Tip.position, hook) <= hookRadius)
+        {
+            if (cable.IsEngaged || cable.IsComplete || cable.Tip == null) continue;
+
+            if (Vector3.Distance(cable.Tip.position, hook) <= hookRadius)
                 cable.HookToGuide();
+            else if (Vector3.Distance(cable.wireController.starAnchorTemp.position, hook) <= hookRadius)
+                LastWrongEndTime = Time.time;
+        }
     }
 
     bool AllCablesComplete()

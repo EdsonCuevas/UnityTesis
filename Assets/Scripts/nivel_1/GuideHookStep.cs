@@ -4,8 +4,10 @@ public class GuideHookStep : TutorialStep
 {
     public PullGuide guide;
     public ConduitPathGuide cable;
+    public string wrongEndHint = "Ese extremo va al medidor: engancha la otra punta del cable";
 
     float startDistance;
+    float nextHintTime;
 
     public override float Progress
     {
@@ -23,6 +25,14 @@ public class GuideHookStep : TutorialStep
     {
         base.Begin(context);
         startDistance = Distance();
+        nextHintTime = 0f;
+    }
+
+    public override void Tick()
+    {
+        if (Time.time - guide.LastWrongEndTime > 0.5f || Time.time < nextHintTime) return;
+        Context.ShowHint(wrongEndHint, 3f);
+        nextHintTime = Time.time + 4f;
     }
 
     float Distance() => cable.Tip != null ? Vector3.Distance(cable.Tip.position, guide.HookPoint) : 0f;
