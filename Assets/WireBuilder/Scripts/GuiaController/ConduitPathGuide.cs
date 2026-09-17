@@ -177,9 +177,29 @@ public class ConduitPathGuide : MonoBehaviour
     /// <summary>Avance máximo posible sin que el cable que queda afuera deje de alcanzar su inicio.</summary>
     public float MaxReachableProgress()
     {
+        // A free start end just gets dragged along, so only the cable's own length limits the feed.
+        if (StartEndIsFree())
+            return Mathf.Clamp((_chain.Length - 1) * _spacing - 0.0001f, 0f, _pathLength);
+
         float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
         int allowedInside = _chain.Length - Mathf.CeilToInt(needed / _spacing);
         return Mathf.Clamp(allowedInside * _spacing - 0.0001f, 0f, _pathLength);
+    }
+
+    bool StartEndIsFree()
+    {
+        var start = wireController.starAnchorTemp;
+        var body = start.GetComponent<Rigidbody>();
+        if (body == null || body.isKinematic) return false;
+
+        var grabbable = start.GetComponent<Grabbable>();
+        if (grabbable != null && grabbable.SelectingPointsCount > 0) return false;
+
+        int last = _chain.Length - 1;
+        for (int i = Mathf.Max(_inside, last - tipGrabLinks * 2); i <= last; i++)
+            if (_grabbables[i] != null && _grabbables[i].SelectingPointsCount > 0)
+                return false;
+        return true;
     }
 
     /// <summary>Lleva la punta hasta esa distancia del recorrido (solo avanza). Lo usa la guía jalacables.</summary>
