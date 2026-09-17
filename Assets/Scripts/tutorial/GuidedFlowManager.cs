@@ -56,7 +56,8 @@ public abstract class GuidedFlowManager : MonoBehaviour
             LeftHand = leftHand,
             RightHand = rightHand,
             Locomotor = locomotor,
-            Panel = panel
+            Panel = panel,
+            GuideLine = guideLine
         };
 
         foreach (var step in steps)
@@ -106,6 +107,7 @@ public abstract class GuidedFlowManager : MonoBehaviour
     void BeginStep(TutorialStep step, int index)
     {
         CurrentStep = step;
+        Context.GuidesVisible = ShowGuides;
         step.Begin(Context);
         panel.MoveTo(step.panelAnchor);
         panel.Show(step.title, ShowGuides ? step.body : string.Empty, index + 1, steps.Length);

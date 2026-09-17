@@ -73,10 +73,20 @@ public class PullGuide : MonoBehaviour
     [Tooltip("Cuánto puede pasarse la mano de la velocidad máxima al jalar antes de que la guía se le resbale.")]
     public float slipTolerance = 1.4f;
 
+    [Header("Atascos")]
+    [Tooltip("Distancias desde el medidor, en orden, donde la guía se atora al jalarla (por ejemplo, después de los codos).")]
+    public float[] jamDistances = { 2.6f, 4.2f };
+    [Tooltip("Cable que hay que empujar por la entrada (los tres juntos) para destrabar la guía.")]
+    public float unjamPush = 0.15f;
+    public AudioClip jamClip;
+    public AudioClip unjamClip;
+
     [Header("Eventos")]
     public UnityEvent OnInserted;
     public UnityEvent OnPulled;
     public UnityEvent OnSlipped;
+    public UnityEvent OnJammed;
+    public UnityEvent OnUnjammed;
 
     public GuideState State { get; private set; }
     public float LastSlipTime { get; private set; } = float.NegativeInfinity;
@@ -86,6 +96,16 @@ public class PullGuide : MonoBehaviour
     public float LastOutOfSlackTime { get; private set; } = float.NegativeInfinity;
     /// <summary>Último momento en que alguien acercó a la cabeza de la guía el extremo que va al medidor.</summary>
     public float LastWrongEndTime { get; private set; } = float.NegativeInfinity;
+    /// <summary>La guía está atorada: no avanza hasta empujar los cables por la entrada.</summary>
+    public bool IsJammed { get; private set; }
+    public int JamCount { get; private set; }
+    /// <summary>Último intento de jalar la guía mientras estaba atorada.</summary>
+    public float LastJammedPullTime { get; private set; } = float.NegativeInfinity;
+    /// <summary>Último empuje de cables que ya no cupo en el ducto.</summary>
+    public float LastPushBlockedTime { get; private set; } = float.NegativeInfinity;
+
+    /// <summary>Qué tanto se ha empujado para destrabar la guía (0 a 1).</summary>
+    public float UnjamProgress01 => IsJammed ? Mathf.Clamp01(MinPushedSlack() / unjamPush) : 0f;
 
     public Vector3 HookPoint => path.PositionAt(0f) + entryHeadOffset;
 
@@ -128,12 +148,16 @@ public class PullGuide : MonoBehaviour
     Vector3 drivePrevPos;
     float driveVelocity;
     float hapticAmplitude;
+    float jamPulseUntil;
+    int nextJam;
     OVRInput.Controller vibratingHand = OVRInput.Controller.None;
     bool leftWasGripping;
     bool rightWasGripping;
     readonly List<Vector3> points = new List<Vector3>();
     readonly List<Vector3> outsidePoints = new List<Vector3>();
     Vector3[] pointBuffer = new Vector3[64];
+
+    void Awake() => System.Array.Sort(jamDistances);
 
     void OnDisable()
     {
@@ -166,10 +190,12 @@ public class PullGuide : MonoBehaviour
             case GuideState.AtEntry:
             case GuideState.Pulling:
                 if (State == GuideState.AtEntry) HookCables();
+                if (State == GuideState.Pulling) PushCables();
                 if (State == GuideState.Pulling && AllCablesComplete()) Finish();
                 else DriveGuide(leftPressed, rightPressed);
                 break;
         }
+        if (Time.time < jamPulseUntil) hapticAmplitude = 1f;
         UpdateHaptics();
     }
 
@@ -227,6 +253,13 @@ public class PullGuide : MonoBehaviour
         }
 
         State = GuideState.Pulling;
+        if (IsJammed)
+        {
+            LastJammedPullTime = Time.time;
+            hapticAmplitude = 0.6f;
+            return;
+        }
+
         float resistance = Resistance(path.BendAt(headDistance));
         float speedLimit = pullSpeed / resistance;
         if (driveVelocity > speedLimit * slipTolerance)
@@ -245,6 +278,20 @@ public class PullGuide : MonoBehaviour
         {
             target = reachable;
             LastOutOfSlackTime = Time.time;
+        }
+
+        // Cable already pushed in at the entry lets the guide through; otherwise it jams here.
+        if (nextJam < jamDistances.Length && target >= jamDistances[nextJam])
+        {
+            if (MinPushedSlack() >= unjamPush)
+            {
+                nextJam++;
+            }
+            else
+            {
+                target = Mathf.Max(headDistance, jamDistances[nextJam]);
+                Jam();
+            }
         }
         if (target <= headDistance) return;
 
@@ -268,6 +315,52 @@ public class PullGuide : MonoBehaviour
             else if (Vector3.Distance(cable.wireController.starAnchorTemp.position, hook) <= hookRadius)
                 LastWrongEndTime = Time.time;
         }
+    }
+
+    /// <summary>Empujar cualquiera de los cables por la entrada mete los tres juntos.</summary>
+    void PushCables()
+    {
+        float push = 0f;
+        foreach (var cable in cables)
+            push = Mathf.Max(push, cable.ReadGuidedPush());
+        if (push <= 0f) return;
+
+        foreach (var cable in cables)
+            push = Mathf.Min(push, cable.PushRoom());
+        if (push <= 0f)
+        {
+            LastPushBlockedTime = Time.time;
+            return;
+        }
+
+        foreach (var cable in cables)
+            cable.PushSlack(push);
+
+        if (IsJammed && MinPushedSlack() >= unjamPush) Unjam();
+    }
+
+    float MinPushedSlack()
+    {
+        float slack = float.PositiveInfinity;
+        foreach (var cable in cables)
+            slack = Mathf.Min(slack, cable.PushedSlack);
+        return cables.Length > 0 ? slack : 0f;
+    }
+
+    void Jam()
+    {
+        IsJammed = true;
+        JamCount++;
+        jamPulseUntil = Time.time + 0.2f;
+        if (jamClip != null) AudioSource.PlayClipAtPoint(jamClip, Mouth);
+        OnJammed.Invoke();
+    }
+
+    void Unjam()
+    {
+        IsJammed = false;
+        if (unjamClip != null) AudioSource.PlayClipAtPoint(unjamClip, path.PositionAt(0f));
+        OnUnjammed.Invoke();
     }
 
     bool AllCablesComplete()

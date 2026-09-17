@@ -54,6 +54,10 @@ public class ConduitPathGuide : MonoBehaviour
     public float slipRegrabDelay = 0.35f;
     [Tooltip("Cable libre extra que debe quedar afuera además de la distancia recta al inicio del cable.")]
     public float slackMargin = 0.05f;
+    [Tooltip("Cable de más que se puede empujar dentro del ducto mientras la guía lo tiene enganchado.")]
+    public float maxPushedSlack = 0.35f;
+    [Tooltip("Velocidad de la mano (m/s) a la que el cable se resbala al empujarlo con la guía enganchada.")]
+    public float guidedPushSlipSpeed = 1.2f;
 
     [Header("Manos")]
     [Tooltip("LeftControllerAnchor: se mide su movimiento mientras empuja el cable.")]
@@ -73,6 +77,8 @@ public class ConduitPathGuide : MonoBehaviour
     public FeedStatus Status { get; private set; }
     public float LastSlipTime { get; private set; } = float.NegativeInfinity;
     public float Progress01 => _pathLength > 0f ? _progress / _pathLength : 0f;
+    /// <summary>Cable empujado de más dentro del ducto, detrás de la punta enganchada a la guía.</summary>
+    public float PushedSlack => _slack;
     public float PathLength { get { EnsurePath(); return _pathLength; } }
     /// <summary>Punta del cable (eslabón que entra primero). Null antes de Start.</summary>
     public Transform Tip => _chain != null ? _chain[0] : null;
@@ -90,6 +96,7 @@ public class ConduitPathGuide : MonoBehaviour
     float _spacing;
     int _inside;
     float _progress;
+    float _slack;
 
     Transform _pushHand;
     int _pushLink = -1;
@@ -210,13 +217,54 @@ public class ConduitPathGuide : MonoBehaviour
         float reachable = MaxReachableProgress();
         Status = distance > reachable ? FeedStatus.OutOfSlack : FeedStatus.Feeding;
         float feed = Mathf.Min(distance, reachable) - _progress;
-        if (feed > 0f) Advance(feed);
+        if (feed <= 0f) return;
+
+        // Cable pushed in earlier is taken up first, so it doesn't draw more from outside.
+        _slack = Mathf.Max(0f, _slack - feed);
+        Advance(feed);
+    }
+
+    /// <summary>
+    /// Avance de la mano que empuja este cable hacia la entrada mientras la guía lo tiene enganchado.
+    /// Solo cuenta hacia adentro; vibra en la mano que lo sostiene.
+    /// </summary>
+    public float ReadGuidedPush()
+    {
+        if (!IsEngaged || IsComplete) return 0f;
+
+        float along = Mathf.Max(0f, ReadFeed(true));
+        if (along <= 0f)
+        {
+            UpdateHaptics(0f);
+            return 0f;
+        }
+
+        float nearSlip = Mathf.Clamp01(_pushVelocity / guidedPushSlipSpeed);
+        UpdateHaptics(Mathf.Clamp(0.25f + 0.5f * nearSlip * nearSlip, 0.25f, 0.9f));
+        return Mathf.Min(along, guidedPushSlipSpeed * Time.fixedDeltaTime);
+    }
+
+    /// <summary>Cuánto cable más cabe empujar: lo limitan el ducto y el cable que queda afuera.</summary>
+    public float PushRoom()
+    {
+        if (!IsEngaged || IsComplete) return 0f;
+        float insideLimit = Mathf.Min(MaxReachableProgress(), _pathLength);
+        return Mathf.Max(0f, Mathf.Min(maxPushedSlack - _slack, insideLimit - _progress - _slack));
+    }
+
+    /// <summary>Mete cable detrás de la punta sin moverla (queda amontonado dentro del ducto).</summary>
+    public void PushSlack(float amount)
+    {
+        if (amount <= 0f || !IsEngaged || IsComplete) return;
+        _slack += amount;
+        Advance(0f);
     }
 
     void Engage()
     {
         IsEngaged = true;
         _progress = 0f;
+        _slack = 0f;
         _inside = 0;
         DetachHand();
         CaptureLink(0);
@@ -224,7 +272,7 @@ public class ConduitPathGuide : MonoBehaviour
         OnEngaged.Invoke();
     }
 
-    float ReadFeed()
+    float ReadFeed(bool guided = false)
     {
         if (_pushHand == null && !TryAttachHand())
             return 0f;
@@ -257,12 +305,16 @@ public class ConduitPathGuide : MonoBehaviour
         Status = FeedStatus.Feeding;
         if (Mathf.Abs(_pushVelocity) < minPushSpeed) return 0f;
 
-        bool handAtEntry = Vector3.Dot(hand - entry, TangentAt(0f)) > -handStopDistance;
+        // A cable hooked to the guide hangs from the entry, so it's pushed from below rather than
+        // along the conduit: only stop when the hand reaches the entry itself.
+        bool handAtEntry = guided
+            ? Vector3.Distance(hand, entry) < handStopDistance
+            : Vector3.Dot(hand - entry, TangentAt(0f)) > -handStopDistance;
         if (along > 0f && handAtEntry) return 0f;
 
         // The cable only enters as fast as the bends allow. Pushing faster makes it slip out of
         // the hand instead of feeding less than the hand moved, which would pile it up outside.
-        if (_pushVelocity > SpeedLimit() * slipTolerance)
+        if (_pushVelocity > PushSlipSpeed(guided))
         {
             Slip();
             return 0f;
@@ -274,6 +326,9 @@ public class ConduitPathGuide : MonoBehaviour
     float Resistance() => 1f + bendResistance * BendAt(_progress) / 90f;
 
     float SpeedLimit() => maxFeedSpeed / Resistance();
+
+    // With the guide pulling, the bends are the guide's problem; the hand only feeds the entry.
+    float PushSlipSpeed(bool guided) => guided ? guidedPushSlipSpeed : SpeedLimit() * slipTolerance;
 
     void Slip()
     {
@@ -358,7 +413,7 @@ public class ConduitPathGuide : MonoBehaviour
     void Advance(float feed)
     {
         _progress = Mathf.Clamp(_progress + feed, 0f, _pathLength);
-        int target = LinksInsideFor(_progress);
+        int target = LinksInsideFor(_progress + _slack);
         while (_inside < target) CaptureLink(_inside);
         while (_inside > target && _inside > 1) ReleaseLink(_inside - 1);
 
@@ -432,9 +487,10 @@ public class ConduitPathGuide : MonoBehaviour
 
     void PlaceInsideLinks()
     {
+        // Pushed slack bunches up right behind the tip, which stays with the guide head.
         for (int k = 0; k < _inside; k++)
         {
-            float distance = Mathf.Max(0f, _progress - k * _spacing);
+            float distance = Mathf.Clamp(_progress + _slack - k * _spacing, 0f, _progress);
             var body = _bodies[k];
             body.isKinematic = true;
             body.MovePosition(PositionAt(distance));

@@ -12,6 +12,10 @@ public class TutorialContext
     public Transform RightHand;
     public FirstPersonLocomotor Locomotor;
     public TutorialPanel Panel;
+    public GuideLine GuideLine;
+
+    // Falso en modo evaluación: sin línea guía ni marcadores.
+    public bool GuidesVisible = true;
 
     // En modo evaluación los avisos se cuentan pero no se muestran.
     public bool HintsEnabled = true;

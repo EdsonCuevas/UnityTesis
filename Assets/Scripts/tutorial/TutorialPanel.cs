@@ -85,6 +85,8 @@ public class TutorialPanel : MonoBehaviour
         progressFill.fillAmount = 0f;
     }
 
+    public void SetBody(string body) => bodyText.text = body;
+
     public void SetProgress(float value) => targetProgress = Mathf.Clamp01(value);
 
     public void SetSkipProgress(float value) => skipFill.fillAmount = Mathf.Clamp01(value);
