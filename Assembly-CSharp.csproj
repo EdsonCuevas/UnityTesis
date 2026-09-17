@@ -79,6 +79,7 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\ConduitStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelProgressManager.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\FollowTarget.cs" />
     <Compile Include="Assets\Scripts\WallZoneTransparency.cs" />
     <Compile Include="Assets\Scripts\nivel_1\UI\LevelUIManager.cs" />
     <Compile Include="Assets\Scripts\tutorial\Pulse.cs" />
