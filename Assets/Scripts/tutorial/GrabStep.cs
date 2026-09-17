@@ -8,8 +8,6 @@ public class GrabStep : TutorialStep
     [Tooltip("Distancia mínima entre la mano y el objeto al agarrarlo (0 = cualquier agarre). Sirve para exigir agarre a distancia.")]
     public float minGrabDistance = 0f;
 
-    static readonly Color HintColor = new Color(1f, 0.8f, 0.3f);
-
     float heldFor;
     bool validGrab;
 
@@ -42,7 +40,7 @@ public class GrabStep : TutorialStep
         {
             validGrab = minGrabDistance <= 0f || NearestHandDistance() >= minGrabDistance;
             if (!validGrab)
-                Context.Panel.ShowFeedback("Aléjate un poco y agárralo desde lejos", HintColor, 3f);
+                Context.ShowHint("Aléjate un poco y agárralo desde lejos", 3f);
         }
         else if (evt.Type == PointerEventType.Unselect && !IsComplete)
         {

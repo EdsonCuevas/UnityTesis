@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="Assets\WireBuilder\Scripts\WireStartConnector.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\PlugController.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\LidStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireTipConnector.cs" />
     <Compile Include="Assets\Scripts\tutorial\TurnStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\GrabStep.cs" />
@@ -66,10 +67,12 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialPanel.cs" />
     <Compile Include="Assets\Scripts\tutorial\ReachZoneStep.cs" />
     <Compile Include="Assets\Scripts\personaje\FootstepsVR.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\LevelResultsStore.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortSettings.cs" />
     <Compile Include="Assets\Scripts\tutorial\StripWireStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\LocomotorActionStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireConnectorType.cs" />
+    <Compile Include="Assets\Scripts\tutorial\GuidedFlowManager.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\ConduitStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelProgressManager.cs" />
@@ -83,9 +86,11 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
     <Compile Include="Assets\Scripts\tutorial\GuideLine.cs" />
     <Compile Include="Assets\Scripts\tutorial\WireStripper.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\LevelManager.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\RegistroLid.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

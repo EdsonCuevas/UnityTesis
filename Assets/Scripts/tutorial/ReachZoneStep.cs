@@ -6,8 +6,6 @@ public class ReachZoneStep : TutorialStep
     [Tooltip("Segundos que el jugador debe correr durante el paso (0 = no se exige correr).")]
     public float requiredRunSeconds = 0f;
 
-    static readonly Color HintColor = new Color(1f, 0.8f, 0.3f);
-
     float startDistance;
     float runSeconds;
     bool reached;
@@ -44,7 +42,7 @@ public class ReachZoneStep : TutorialStep
 
         if (reached && runSeconds < requiredRunSeconds && Time.time > nextHintTime)
         {
-            Context.Panel.ShowFeedback("Mantén hundido el joystick izquierdo mientras caminas para correr", HintColor, 3f);
+            Context.ShowHint("Mantén hundido el joystick izquierdo mientras caminas para correr", 3f);
             nextHintTime = Time.time + 4f;
         }
     }

@@ -24,9 +24,6 @@ public class ConduitPathGuide : MonoBehaviour
     [Header("Cable")]
     public WireController wireController;
 
-    [Header("Progreso")]
-    public int cableID = 1;
-
     [Header("Entrada")]
     [Tooltip("Distancia máxima entre la punta del cable y la entrada para introducirla.")]
     public float entryRadius = 0.15f;
@@ -333,9 +330,6 @@ public class ConduitPathGuide : MonoBehaviour
         Status = FeedStatus.Complete;
         DetachHand();
         UpdateHaptics(0f);
-
-        if (LevelProgressManager.Instance != null)
-            LevelProgressManager.Instance.CompletarCable(cableID);
 
         OnCompleted.Invoke();
     }

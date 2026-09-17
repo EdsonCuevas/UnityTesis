@@ -4,8 +4,6 @@ public class ConduitStep : TutorialStep
 {
     public ConduitPathGuide conduit;
 
-    static readonly Color HintColor = new Color(1f, 0.8f, 0.3f);
-
     float nextHintTime;
 
     public override float Progress => conduit.Progress01;
@@ -28,7 +26,7 @@ public class ConduitStep : TutorialStep
         };
 
         if (hint == null || Time.time < nextHintTime) return;
-        Context.Panel.ShowFeedback(hint, HintColor, 2.5f);
+        Context.ShowHint(hint);
         nextHintTime = Time.time + 3f;
     }
 }

@@ -21,6 +21,9 @@ public class PlugController : MonoBehaviour
     [HideInInspector]
     public WireController wireController;
 
+    // Segment joined to endAnchor; endAnchor may be either end of the wire.
+    Transform adjacentSegment;
+
     public void OnPlugged()
     {
         OnWirePlugged.Invoke();
@@ -40,6 +43,7 @@ public class PlugController : MonoBehaviour
         if (endAnchor != null && other.gameObject == endAnchor.gameObject)
         {
             isConected = true;
+            adjacentSegment = FindAdjacentSegment();
             endAnchorRB.isKinematic = true;
             endAnchor.transform.position = plugPosition.position;
             endAnchor.transform.rotation = transform.rotation;
@@ -54,10 +58,9 @@ public class PlugController : MonoBehaviour
             return;
 
         // Auto-disconnect when the wire is pulled far enough from the plug
-        if (wireController != null && wireController.segments != null && wireController.segments.Count > 0)
+        if (adjacentSegment != null)
         {
-            Transform lastSegment = wireController.segments[wireController.segments.Count - 1];
-            if (Vector3.Distance(lastSegment.position, plugPosition.position) > disconnectDistance)
+            if (Vector3.Distance(adjacentSegment.position, plugPosition.position) > disconnectDistance)
             {
                 Disconnect();
                 return;
@@ -68,5 +71,17 @@ public class PlugController : MonoBehaviour
         endAnchor.transform.position = plugPosition.position;
         Vector3 eulerRotation = new Vector3(this.transform.eulerAngles.x + 90, this.transform.eulerAngles.y, this.transform.eulerAngles.z);
         endAnchor.transform.rotation = Quaternion.Euler(eulerRotation);
+    }
+
+    Transform FindAdjacentSegment()
+    {
+        if (wireController == null || wireController.segments == null || wireController.segments.Count == 0)
+            return null;
+
+        Transform first = wireController.segments[0];
+        Transform last = wireController.segments[wireController.segments.Count - 1];
+        return Vector3.Distance(first.position, endAnchor.position) < Vector3.Distance(last.position, endAnchor.position)
+            ? first
+            : last;
     }
 }

@@ -3,8 +3,7 @@ using UnityEngine;
 public class StripWireStep : TutorialStep
 {
     public WireStripper stripper;
-
-    static readonly Color HintColor = new Color(1f, 0.8f, 0.3f);
+    public string holdCableHint = "Sostén el cable blanco con la otra mano para poder jalar";
 
     float nextHintTime;
 
@@ -24,7 +23,7 @@ public class StripWireStep : TutorialStep
     {
         if (stripper.WaitingForCableHold && Time.time > nextHintTime)
         {
-            Context.Panel.ShowFeedback("Sostén el cable blanco con la otra mano para poder jalar", HintColor, 2.5f);
+            Context.ShowHint(holdCableHint);
             nextHintTime = Time.time + 3f;
         }
     }

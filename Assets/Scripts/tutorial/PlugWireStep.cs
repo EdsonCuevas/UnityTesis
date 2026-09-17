@@ -4,6 +4,7 @@ public class PlugWireStep : TutorialStep
 {
     public PlugController plug;
 
+    Collider plugTrigger;
     float startDistance;
 
     public override float Progress =>
@@ -11,9 +12,17 @@ public class PlugWireStep : TutorialStep
 
     public override bool IsComplete => plug.isConected;
 
+    // The socket only accepts the wire once its step starts, so earlier steps keep their order.
+    void Awake()
+    {
+        plugTrigger = plug.GetComponent<Collider>();
+        plugTrigger.enabled = false;
+    }
+
     public override void Begin(TutorialContext context)
     {
         base.Begin(context);
+        plugTrigger.enabled = true;
         startDistance = Distance();
     }
 
