@@ -1,71 +1,113 @@
-using UnityEngine;
 using System.Collections.Generic;
+using Oculus.Interaction;
+using UnityEngine;
+using UnityEngine.Events;
 
-/// <summary>
-/// Guía un cable físico a través de un ducto siguiendo waypoints.
-/// Los segmentos entran al ducto de uno en uno, en orden, desde la punta.
-/// </summary>
 public class ConduitPathGuide : MonoBehaviour
 {
+    public enum FeedStatus
+    {
+        WaitingForTip,
+        TipMisaligned,
+        Feeding,
+        NeedCloserGrip,
+        OutOfSlack,
+        Slipped,
+        Complete
+    }
+
     [Header("Trayectoria del ducto")]
+    [Tooltip("Puntos del recorrido en orden desde la entrada. Se unen con una curva suave.")]
     public Transform[] waypoints;
+    [Tooltip("Distancia entre muestras de la curva (metros).")]
+    public float sampleSpacing = 0.01f;
 
     [Header("Cable")]
     public WireController wireController;
+    [Tooltip("Desactívalo cuando el cable avanza arrastrado por la guía jalacables en lugar de empujarse a mano.")]
+    public bool handFeed = true;
 
-    [Header("Progreso")]
-    public int cableID = 1;
-
-    [Header("Configuración")]
-    [Tooltip("Radio de detección en la entrada del ducto.")]
+    [Header("Entrada")]
+    [Tooltip("Distancia máxima entre la punta del cable y la entrada para introducirla.")]
     public float entryRadius = 0.15f;
+    [Tooltip("Ángulo máximo entre la dirección del cable y la del ducto para poder introducirlo.")]
+    public float maxEntryAngle = 70f;
+    [Tooltip("Eslabones desde la punta que cuentan como 'sostener la punta' para introducirla.")]
+    public int tipGrabLinks = 8;
 
-    [Tooltip("Cuánto afecta la velocidad de la mano al avance.")]
-    [Range(0.1f, 5f)]
-    public float speedMultiplier = 1f;
+    [Header("Empuje")]
+    [Tooltip("Distancia máxima entre la mano y la entrada del ducto para que el empuje se transmita.")]
+    public float maxPushReach = 0.4f;
+    [Tooltip("Velocidad mínima de la mano (suavizada) para contar como empuje; filtra la vibración del tracking.")]
+    public float minPushSpeed = 0.02f;
+    [Tooltip("Tiempo de suavizado de la velocidad de la mano (segundos).")]
+    public float pushSmoothing = 0.08f;
+    [Tooltip("Qué tan cerca de la entrada puede llegar la mano antes de dejar de empujar.")]
+    public float handStopDistance = 0.04f;
+    [Tooltip("Velocidad máxima de empuje en tramo recto (m/s).")]
+    public float maxFeedSpeed = 0.6f;
+    [Tooltip("Resistencia extra por cada 90° de curva que ya recorrió la punta: divide la velocidad máxima de empuje.")]
+    public float bendResistance = 0.5f;
+    [Tooltip("Cuánto puede pasarse la mano de la velocidad máxima antes de que el cable se le resbale.")]
+    public float slipTolerance = 1.4f;
+    [Tooltip("Segundos que el eslabón resbalado no se puede volver a agarrar.")]
+    public float slipRegrabDelay = 0.35f;
+    [Tooltip("Cable libre extra que debe quedar afuera además de la distancia recta al inicio del cable.")]
+    public float slackMargin = 0.05f;
+    [Tooltip("Cable de más que se puede empujar dentro del ducto mientras la guía lo tiene enganchado.")]
+    public float maxPushedSlack = 0.35f;
+    [Tooltip("Velocidad de la mano (m/s) a la que el cable se resbala al empujarlo con la guía enganchada.")]
+    public float guidedPushSlipSpeed = 1.2f;
 
-    [Tooltip("Máximo avance de la PUNTA por FixedUpdate (metros).")]
-    public float maxAdvancePerFrame = 0.02f;
+    [Header("Manos")]
+    [Tooltip("LeftControllerAnchor: se mide su movimiento mientras empuja el cable.")]
+    public Transform leftHand;
+    [Tooltip("RightControllerAnchor: se mide su movimiento mientras empuja el cable.")]
+    public Transform rightHand;
+    [Range(0f, 1f)] public float gripThreshold = 0.5f;
 
-    [Tooltip("Máximo de segmentos nuevos que pueden entrar por FixedUpdate. " +
-             "Mantener en 1 para evitar la cascada.")]
-    [Range(1, 5)]
-    public int maxSegmentsPerFrame = 1;
+    [Header("Eventos")]
+    public UnityEvent OnEngaged;
+    public UnityEvent OnDisengaged;
+    public UnityEvent OnCompleted;
+    public UnityEvent OnSlipped;
 
-    [Tooltip("Drag aplicado a segmentos dentro del ducto.")]
-    [Range(0f, 20f)]
-    public float activeDrag = 8f;
+    public bool IsEngaged { get; private set; }
+    public bool IsComplete { get; private set; }
+    public FeedStatus Status { get; private set; }
+    public float LastSlipTime { get; private set; } = float.NegativeInfinity;
+    public float Progress01 => _pathLength > 0f ? _progress / _pathLength : 0f;
+    /// <summary>Cable empujado de más dentro del ducto, detrás de la punta enganchada a la guía.</summary>
+    public float PushedSlack => _slack;
+    public float PathLength { get { EnsurePath(); return _pathLength; } }
+    /// <summary>Punta del cable (eslabón que entra primero). Null antes de Start.</summary>
+    public Transform Tip => _chain != null ? _chain[0] : null;
 
-    [Header("Manos VR")]
-    public Transform pushReferenceLeft;
-    public Transform pushReferenceRight;
+    readonly List<Vector3> _samples = new List<Vector3>();
+    readonly List<float> _cumLength = new List<float>();
+    readonly List<float> _cumBend = new List<float>();
+    float _pathLength;
 
-    [Header("Spacing (auto-calculado)")]
-    [Tooltip("Distancia entre segmentos. Se sobreescribe en runtime si autoComputeSpacing=true.")]
-    public float segmentSpacing = 0.05f;
-    public bool autoComputeSpacing = true;
+    // Index 0 is the cable tip; higher indices go back toward the start anchor.
+    Transform[] _chain;
+    Rigidbody[] _bodies;
+    Grabbable[] _grabbables;
+    Behaviour[][] _interactables;
+    float _spacing;
+    int _inside;
+    float _progress;
+    float _slack;
 
-    // ── Estado privado ────────────────────────────────────────────────────────
-    private bool _active;
-    private float _progress;
-    private float _totalLen;
-    private float[] _cumDist;
-    private Rigidbody _tipRB;
+    Transform _pushHand;
+    int _pushLink = -1;
+    OVRInput.Controller _pushController = OVRInput.Controller.None;
+    Vector3 _pushPrevPos;
+    float _pushVelocity;
+    OVRInput.Controller _vibratingHand = OVRInput.Controller.None;
+    int _slippedLink = -1;
+    float _slipRegrabTime;
 
-    // Cuántos segmentos han entrado ya al ducto (excluyendo la punta/endAnchorTemp)
-    private int _insideCount;
-
-    // Dirección de recorrido de la lista wireController.segments
-    private bool _segsReversed;
-
-    private float[] _originalDrags;
-    private List<Collider> _disabledColliders;
-
-    private Vector3 _prevPosLeft, _prevPosRight;
-    private bool _leftInit, _rightInit;
-
-    // ── Inicialización ────────────────────────────────────────────────────────
-    private void Start()
+    void Start()
     {
         if (waypoints == null || waypoints.Length < 2)
         {
@@ -73,306 +115,559 @@ public class ConduitPathGuide : MonoBehaviour
             enabled = false;
             return;
         }
-        BuildPath();
-    }
 
-    private void BuildPath()
-    {
-        _cumDist = new float[waypoints.Length];
-        _cumDist[0] = 0f;
-        for (int i = 1; i < waypoints.Length; i++)
-            _cumDist[i] = _cumDist[i - 1] +
-                          Vector3.Distance(waypoints[i - 1].position, waypoints[i].position);
-        _totalLen = _cumDist[waypoints.Length - 1];
-    }
+        EnsurePath();
+        if (wireController == null) return;
 
-    // ── Loop principal ────────────────────────────────────────────────────────
-    private void FixedUpdate()
-    {
-        if (wireController == null || wireController.endAnchorTemp == null) return;
-
-        if (!_active)
+        if (leftHand == null || rightHand == null)
         {
-            float dist = Vector3.Distance(wireController.endAnchorTemp.position,
-                                          waypoints[0].position);
-            if (dist <= entryRadius)
-                Activate();
+            Debug.LogError("[ConduitPathGuide] Asigna leftHand y rightHand (anclas de los controles).", this);
+            enabled = false;
             return;
         }
 
-        // 1. Avanzar la punta
-        float advance = ComputeAdvanceDelta();
-        advance = Mathf.Min(advance, maxAdvancePerFrame);
-        _progress = Mathf.Clamp(_progress + advance, 0f, _totalLen);
-
-        _tipRB.MovePosition(EvaluatePosition(_progress));
-        _tipRB.MoveRotation(EvaluateRotation(_progress));
-
-        // 2. Meter segmentos de uno en uno (máx. maxSegmentsPerFrame)
-        UpdateSegmentsInConduit();
-
-        if (_progress >= _totalLen)
-            FreezeAll();
+        BuildChain();
     }
 
-    // ── Entrada ordenada de segmentos ─────────────────────────────────────────
+    void OnDisable() => UpdateHaptics(0f);
+
+    void FixedUpdate()
+    {
+        if (_chain == null || IsComplete) return;
+
+        if (_slippedLink >= 0 && Time.time >= _slipRegrabTime)
+        {
+            if (_slippedLink >= _inside) SetInteractable(_slippedLink, true);
+            _slippedLink = -1;
+        }
+
+        if (!IsEngaged)
+        {
+            if (handFeed) TryEngage();
+            return;
+        }
+
+        if (handFeed) ApplyFeed(ReadFeed());
+        if (!IsEngaged) return;
+
+        PlaceInsideLinks();
+        if (_progress >= _pathLength)
+            Complete();
+    }
+
+    void TryEngage()
+    {
+        bool near = Vector3.Distance(_chain[0].position, _samples[0]) <= entryRadius;
+        if (!near || !IsHeldNearTip())
+        {
+            Status = FeedStatus.WaitingForTip;
+            return;
+        }
+
+        if (Vector3.Angle(CableDirection(), TangentAt(0f)) > maxEntryAngle)
+        {
+            Status = FeedStatus.TipMisaligned;
+            return;
+        }
+
+        Engage();
+    }
+
+    /// <summary>Engancha la punta a la guía jalacables: entra al ducto sin revisar mano ni orientación.</summary>
+    public bool HookToGuide()
+    {
+        if (_chain == null || IsEngaged || IsComplete) return false;
+        Engage();
+        return true;
+    }
+
+    /// <summary>Avance máximo posible sin que el cable que queda afuera deje de alcanzar su inicio.</summary>
+    public float MaxReachableProgress()
+    {
+        // A free start end just gets dragged along, so only the cable's own length limits the feed.
+        if (StartEndIsFree())
+            return Mathf.Clamp((_chain.Length - 1) * _spacing - 0.0001f, 0f, _pathLength);
+
+        float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
+        int allowedInside = _chain.Length - Mathf.CeilToInt(needed / _spacing);
+        return Mathf.Clamp(allowedInside * _spacing - 0.0001f, 0f, _pathLength);
+    }
+
+    bool StartEndIsFree()
+    {
+        var start = wireController.starAnchorTemp;
+        var body = start.GetComponent<Rigidbody>();
+        if (body == null || body.isKinematic) return false;
+
+        var grabbable = start.GetComponent<Grabbable>();
+        if (grabbable != null && grabbable.SelectingPointsCount > 0) return false;
+
+        int last = _chain.Length - 1;
+        for (int i = Mathf.Max(_inside, last - tipGrabLinks * 2); i <= last; i++)
+            if (_grabbables[i] != null && _grabbables[i].SelectingPointsCount > 0)
+                return false;
+        return true;
+    }
+
+    /// <summary>Lleva la punta hasta esa distancia del recorrido (solo avanza). Lo usa la guía jalacables.</summary>
+    public void FeedTo(float distance)
+    {
+        if (!IsEngaged || IsComplete) return;
+
+        float reachable = MaxReachableProgress();
+        Status = distance > reachable ? FeedStatus.OutOfSlack : FeedStatus.Feeding;
+        float feed = Mathf.Min(distance, reachable) - _progress;
+        if (feed <= 0f) return;
+
+        // Cable pushed in earlier is taken up first, so it doesn't draw more from outside.
+        _slack = Mathf.Max(0f, _slack - feed);
+        Advance(feed);
+    }
+
     /// <summary>
-    /// Un segmento solo entra al ducto cuando _progress ha avanzado lo suficiente
-    /// para "justificarlo" Y como máximo maxSegmentsPerFrame por frame.
-    /// Así se rompe la cascada de joints.
+    /// Avance de la mano que empuja este cable hacia la entrada mientras la guía lo tiene enganchado.
+    /// Solo cuenta hacia adentro; vibra en la mano que lo sostiene.
     /// </summary>
-    private void UpdateSegmentsInConduit()
+    public float ReadGuidedPush()
     {
-        var segs = wireController.segments;
-        if (segs == null || segs.Count == 0) return;
+        if (!IsEngaged || IsComplete) return 0f;
 
-        int count = segs.Count;
-        int newThisFrame = 0;
-
-        // ── Entrar segmentos nuevos (de uno en uno) ───────────────────────────
-        while (newThisFrame < maxSegmentsPerFrame && _insideCount < count)
+        float along = Mathf.Max(0f, ReadFeed(true));
+        if (along <= 0f)
         {
-            // ¿Ha avanzado lo suficiente para que entre el siguiente segmento?
-            float required = (_insideCount + 1) * segmentSpacing;
-            if (_progress < required) break;
-
-            // Hacer kinematic el siguiente segmento en orden
-            int realIdx = _segsReversed ? (count - 1 - _insideCount) : _insideCount;
-            var rb = segs[realIdx].GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                // Parar su velocidad justo antes de capturarlo para evitar rebotes
-                if (!rb.isKinematic)
-                {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                }
-                rb.isKinematic = true;
-            }
-
-            _insideCount++;
-            newThisFrame++;
+            UpdateHaptics(0f);
+            return 0f;
         }
 
-        // ── Posicionar todos los segmentos que ya están dentro ────────────────
-        for (int i = 0; i < _insideCount; i++)
-        {
-            int realIdx = _segsReversed ? (count - 1 - i) : i;
-            var rb = segs[realIdx].GetComponent<Rigidbody>();
-            if (rb == null) continue;
-
-            float segProgress = _progress - ((i + 1) * segmentSpacing);
-            segProgress = Mathf.Max(0f, segProgress);
-
-            rb.MovePosition(EvaluatePosition(segProgress));
-            rb.MoveRotation(EvaluateRotation(segProgress));
-        }
+        float nearSlip = Mathf.Clamp01(_pushVelocity / guidedPushSlipSpeed);
+        UpdateHaptics(Mathf.Clamp(0.25f + 0.5f * nearSlip * nearSlip, 0.25f, 0.9f));
+        return Mathf.Min(along, guidedPushSlipSpeed * Time.fixedDeltaTime);
     }
 
-    // ── Avance de la punta ────────────────────────────────────────────────────
-    private float ComputeAdvanceDelta()
+    /// <summary>Cuánto cable más cabe empujar: lo limitan el ducto y el cable que queda afuera.</summary>
+    public float PushRoom()
     {
-        Vector3 entryDir = (waypoints[1].position - waypoints[0].position).normalized;
-
-        if (pushReferenceLeft == null && pushReferenceRight == null)
-        {
-            var segs = wireController.segments;
-            if (segs == null || segs.Count == 0) return 0f;
-            Transform refT = segs[0];
-            if (!_leftInit) { _prevPosLeft = refT.position; _leftInit = true; return 0f; }
-            Vector3 d = refT.position - _prevPosLeft;
-            _prevPosLeft = refT.position;
-            return Vector3.Dot(d, entryDir) * speedMultiplier;
-        }
-
-        float advL = GetHandAdvance(pushReferenceLeft, ref _prevPosLeft, ref _leftInit, entryDir);
-        float advR = GetHandAdvance(pushReferenceRight, ref _prevPosRight, ref _rightInit, entryDir);
-        return Mathf.Max(advL, advR) * speedMultiplier;
+        if (!IsEngaged || IsComplete) return 0f;
+        float insideLimit = Mathf.Min(MaxReachableProgress(), _pathLength);
+        return Mathf.Max(0f, Mathf.Min(maxPushedSlack - _slack, insideLimit - _progress - _slack));
     }
 
-    private float GetHandAdvance(Transform hand, ref Vector3 prevPos, ref bool init, Vector3 dir)
+    /// <summary>Mete cable detrás de la punta sin moverla (queda amontonado dentro del ducto).</summary>
+    public void PushSlack(float amount)
     {
-        if (hand == null) return 0f;
-        if (!init) { prevPos = hand.position; init = true; return 0f; }
-        Vector3 delta = hand.position - prevPos;
-        prevPos = hand.position;
-        return Mathf.Max(0f, Vector3.Dot(delta, dir));
+        if (amount <= 0f || !IsEngaged || IsComplete) return;
+        _slack += amount;
+        Advance(0f);
     }
 
-    // ── Activar ───────────────────────────────────────────────────────────────
-    private void Activate()
+    void Engage()
     {
-        _active = true;
+        IsEngaged = true;
         _progress = 0f;
-        _insideCount = 0;
-
-        _tipRB = wireController.endAnchorTemp.GetComponent<Rigidbody>();
-        if (_tipRB != null)
-        {
-            if (!_tipRB.isKinematic)
-            {
-                _tipRB.linearVelocity = Vector3.zero;
-                _tipRB.angularVelocity = Vector3.zero;
-            }
-            _tipRB.isKinematic = true;
-        }
-
-        var segs = wireController.segments;
-
-        // ── Detectar orden de la lista ────────────────────────────────────────
-        if (segs != null && segs.Count >= 2)
-        {
-            Vector3 tipPos = wireController.endAnchorTemp.position;
-            float distFirst = Vector3.Distance(segs[0].position, tipPos);
-            float distLast = Vector3.Distance(segs[segs.Count - 1].position, tipPos);
-            _segsReversed = distLast < distFirst;
-            Debug.Log($"[ConduitPathGuide] segsReversed={_segsReversed} " +
-                      $"(distFirst={distFirst:F3} distLast={distLast:F3})");
-        }
-
-        // ── Calcular spacing como longitud total / nº segmentos ───────────────
-        // Más robusto que medir solo los primeros 5: evita el problema de
-        // segmentos apilados o con spacing cercano a 0.
-        if (autoComputeSpacing && segs != null && segs.Count >= 2)
-        {
-            float totalChainLen = 0f;
-            for (int i = 0; i < segs.Count - 1; i++)
-                totalChainLen += Vector3.Distance(segs[i].position, segs[i + 1].position);
-
-            float computed = totalChainLen / (segs.Count - 1);
-
-            // Mínimo 1 cm para evitar division/spacing ≈ 0 que mete todo a la vez
-            segmentSpacing = Mathf.Max(computed, 0.01f);
-            Debug.Log($"[ConduitPathGuide] segmentSpacing={segmentSpacing:F4}m " +
-                      $"(chainLen={totalChainLen:F3}m, segs={segs.Count})");
-        }
-
-        _leftInit = false;
-        _rightInit = false;
-
-        // Aplicar drag a todos los segmentos pero NO hacerlos kinematic todavía
-        if (segs != null)
-        {
-            _originalDrags = new float[segs.Count];
-            for (int i = 0; i < segs.Count; i++)
-            {
-                var rb = segs[i].GetComponent<Rigidbody>();
-                if (rb == null) continue;
-                _originalDrags[i] = rb.linearDamping;
-                rb.linearDamping = activeDrag;
-                rb.isKinematic = false;   // garantizar que ninguno empieza kinematic
-            }
-        }
+        _slack = 0f;
+        _inside = 0;
+        DetachHand();
+        CaptureLink(0);
+        Status = FeedStatus.Feeding;
+        OnEngaged.Invoke();
     }
 
-    private void FreezeAll()
+    float ReadFeed(bool guided = false)
     {
-        _active = false;
-        _disabledColliders = new List<Collider>();
+        if (_pushHand == null && !TryAttachHand())
+            return 0f;
 
-        if (_tipRB != null)
+        bool gripping = OVRInput.Get(OVRInput.Axis1D.PrimaryHandTrigger, _pushController) >= gripThreshold;
+        if (!gripping)
         {
-            if (!_tipRB.isKinematic)
-            {
-                _tipRB.linearVelocity = Vector3.zero;
-                _tipRB.angularVelocity = Vector3.zero;
-            }
-            _tipRB.isKinematic = true;
+            DetachHand();
+            Status = FeedStatus.Feeding;
+            return 0f;
         }
 
-        var segs = wireController.segments;
-        for (int i = 0; i < segs.Count; i++)
+        Vector3 entry = _samples[0];
+        Vector3 hand = _pushHand.position;
+        if (Vector3.Distance(hand, entry) > maxPushReach)
         {
-            var rb = segs[i].GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                if (!rb.isKinematic)
-                {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                }
-                rb.isKinematic = true;
-            }
-
-            foreach (var col in segs[i].GetComponentsInChildren<Collider>())
-            {
-                if (!col.enabled) continue;
-                col.enabled = false;
-                _disabledColliders.Add(col);
-            }
+            DetachHand();
+            Status = FeedStatus.NeedCloserGrip;
+            return 0f;
         }
 
-        if (_tipRB != null)
+        Vector3 toEntry = entry - hand;
+        Vector3 axis = toEntry.magnitude > 0.06f ? toEntry.normalized : TangentAt(0f);
+        float along = Vector3.Dot(hand - _pushPrevPos, axis);
+        _pushPrevPos = hand;
+
+        // Smoothed speed rejects tracking jitter (zero-mean) without discarding real motion.
+        float dt = Time.fixedDeltaTime;
+        _pushVelocity = Mathf.Lerp(_pushVelocity, along / dt, 1f - Mathf.Exp(-dt / pushSmoothing));
+        Status = FeedStatus.Feeding;
+        if (Mathf.Abs(_pushVelocity) < minPushSpeed) return 0f;
+
+        // A cable hooked to the guide hangs from the entry, so it's pushed from below rather than
+        // along the conduit: only stop when the hand reaches the entry itself.
+        bool handAtEntry = guided
+            ? Vector3.Distance(hand, entry) < handStopDistance
+            : Vector3.Dot(hand - entry, TangentAt(0f)) > -handStopDistance;
+        if (along > 0f && handAtEntry) return 0f;
+
+        // The cable only enters as fast as the bends allow. Pushing faster makes it slip out of
+        // the hand instead of feeding less than the hand moved, which would pile it up outside.
+        if (_pushVelocity > PushSlipSpeed(guided))
         {
-            foreach (var col in _tipRB.GetComponentsInChildren<Collider>())
-            {
-                if (!col.enabled) continue;
-                col.enabled = false;
-                _disabledColliders.Add(col);
-            }
+            Slip();
+            return 0f;
         }
 
-        _originalDrags = null;
-
-        if (LevelProgressManager.Instance != null)
-            LevelProgressManager.Instance.CompletarCable(cableID);
-
-        Debug.Log("[ConduitPathGuide] Cable congelado.");
+        return along;
     }
 
-    // ── Evaluación del path ───────────────────────────────────────────────────
-    private Vector3 EvaluatePosition(float dist)
+    float Resistance() => 1f + bendResistance * BendAt(_progress) / 90f;
+
+    float SpeedLimit() => maxFeedSpeed / Resistance();
+
+    // With the guide pulling, the bends are the guide's problem; the hand only feeds the entry.
+    float PushSlipSpeed(bool guided) => guided ? guidedPushSlipSpeed : SpeedLimit() * slipTolerance;
+
+    void Slip()
     {
-        if (dist <= 0f) return waypoints[0].position;
-        if (dist >= _totalLen) return waypoints[waypoints.Length - 1].position;
-
-        for (int i = 1; i < waypoints.Length; i++)
+        int link = _pushLink;
+        DetachHand();
+        if (link >= _inside)
         {
-            if (_cumDist[i] >= dist)
+            SetInteractable(link, false);
+            _slippedLink = link;
+            _slipRegrabTime = Time.time + slipRegrabDelay;
+        }
+        Status = FeedStatus.Slipped;
+        LastSlipTime = Time.time;
+        UpdateHaptics(0f);
+        OnSlipped.Invoke();
+    }
+
+    bool TryAttachHand()
+    {
+        int held = NearestHeldOutsideLink();
+        if (held < 0)
+        {
+            Status = FeedStatus.Feeding;
+            return false;
+        }
+
+        Vector3 linkPosition = _chain[held].position;
+        if (Vector3.Distance(linkPosition, _samples[0]) > maxPushReach)
+        {
+            Status = FeedStatus.NeedCloserGrip;
+            return false;
+        }
+
+        bool left = Vector3.Distance(linkPosition, leftHand.position) < Vector3.Distance(linkPosition, rightHand.position);
+        _pushHand = left ? leftHand : rightHand;
+        _pushLink = held;
+        _pushController = left ? OVRInput.Controller.LTouch : OVRInput.Controller.RTouch;
+        _pushPrevPos = _pushHand.position;
+        _pushVelocity = 0f;
+        return true;
+    }
+
+    void DetachHand()
+    {
+        _pushHand = null;
+        _pushLink = -1;
+        _pushController = OVRInput.Controller.None;
+        _pushVelocity = 0f;
+    }
+
+    void ApplyFeed(float feed)
+    {
+        float maxStep = maxFeedSpeed * Time.fixedDeltaTime;
+        float resistance = Resistance();
+        float pushStep = SpeedLimit() * slipTolerance * Time.fixedDeltaTime;
+
+        if (feed > 0f)
+        {
+            feed = Mathf.Min(feed, pushStep);
+            float outsideAfter = (_chain.Length - LinksInsideFor(_progress + feed)) * _spacing;
+            float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
+            if (outsideAfter < needed)
             {
-                float t = (dist - _cumDist[i - 1]) / (_cumDist[i] - _cumDist[i - 1]);
-                return Vector3.Lerp(waypoints[i - 1].position, waypoints[i].position, t);
+                Status = FeedStatus.OutOfSlack;
+                feed = 0f;
             }
         }
-        return waypoints[waypoints.Length - 1].position;
-    }
-
-    private Quaternion EvaluateRotation(float dist)
-    {
-        Vector3 dir = GetPathDirection(dist);
-        return dir != Vector3.zero ? Quaternion.LookRotation(dir) : _tipRB.rotation;
-    }
-
-    private Vector3 GetPathDirection(float dist)
-    {
-        for (int i = 1; i < waypoints.Length; i++)
+        else
         {
-            if (_cumDist[i] >= dist)
-                return (waypoints[i].position - waypoints[i - 1].position).normalized;
+            feed = Mathf.Max(feed, -maxStep);
         }
-        int last = waypoints.Length - 1;
-        return (waypoints[last].position - waypoints[last - 1].position).normalized;
+
+        // Vibration grows with the bends and as the hand nears the slipping speed.
+        float nearSlip = Mathf.Clamp01(_pushVelocity / (SpeedLimit() * slipTolerance));
+        UpdateHaptics(feed > 0f
+            ? Mathf.Clamp(0.15f + 0.25f * (resistance - 1f) + 0.35f * nearSlip * nearSlip, 0.15f, 0.9f)
+            : 0f);
+
+        Advance(feed);
     }
 
-    // ── Gizmos ────────────────────────────────────────────────────────────────
-    private void OnDrawGizmos()
+    void Advance(float feed)
+    {
+        _progress = Mathf.Clamp(_progress + feed, 0f, _pathLength);
+        int target = LinksInsideFor(_progress + _slack);
+        while (_inside < target) CaptureLink(_inside);
+        while (_inside > target && _inside > 1) ReleaseLink(_inside - 1);
+
+        if (_progress <= 0f && feed < 0f)
+            Disengage();
+    }
+
+    bool IsHeldNearTip()
+    {
+        int last = Mathf.Min(tipGrabLinks, _chain.Length - 1);
+        for (int i = 0; i <= last; i++)
+            if (_grabbables[i] != null && _grabbables[i].SelectingPointsCount > 0)
+                return true;
+        return false;
+    }
+
+    Vector3 CableDirection()
+    {
+        Vector3 direction = _chain[0].position - _chain[Mathf.Min(3, _chain.Length - 1)].position;
+        return direction.sqrMagnitude > 1e-6f ? direction.normalized : _chain[0].forward;
+    }
+
+    int LinksInsideFor(float progress) => Mathf.Min(_chain.Length, 1 + Mathf.FloorToInt(progress / _spacing));
+
+    int NearestHeldOutsideLink()
+    {
+        for (int i = _inside; i < _chain.Length; i++)
+            if (_grabbables[i] != null && _grabbables[i].SelectingPointsCount > 0)
+                return i;
+        return -1;
+    }
+
+    void CaptureLink(int index)
+    {
+        // Disabling the interactables releases the hand; Grabbable then restores
+        // isKinematic, so the conduit re-locks it afterwards (and every physics step).
+        SetInteractable(index, false);
+
+        var body = _bodies[index];
+        if (!body.isKinematic)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+        body.isKinematic = true;
+        _inside = index + 1;
+    }
+
+    void ReleaseLink(int index)
+    {
+        _bodies[index].isKinematic = false;
+        if (index != _slippedLink) SetInteractable(index, true);
+        _inside = index;
+    }
+
+    void SetInteractable(int index, bool enabled)
+    {
+        foreach (var interactable in _interactables[index])
+            interactable.enabled = enabled;
+    }
+
+    void Disengage()
+    {
+        while (_inside > 0) ReleaseLink(_inside - 1);
+        IsEngaged = false;
+        DetachHand();
+        Status = FeedStatus.WaitingForTip;
+        UpdateHaptics(0f);
+        OnDisengaged.Invoke();
+    }
+
+    void PlaceInsideLinks()
+    {
+        // Pushed slack bunches up right behind the tip, which stays with the guide head.
+        for (int k = 0; k < _inside; k++)
+        {
+            float distance = Mathf.Clamp(_progress + _slack - k * _spacing, 0f, _progress);
+            var body = _bodies[k];
+            body.isKinematic = true;
+            body.MovePosition(PositionAt(distance));
+            body.MoveRotation(Quaternion.LookRotation(TangentAt(distance)));
+        }
+    }
+
+    void Complete()
+    {
+        IsComplete = true;
+        Status = FeedStatus.Complete;
+        DetachHand();
+        UpdateHaptics(0f);
+
+        OnCompleted.Invoke();
+    }
+
+    void UpdateHaptics(float amplitude)
+    {
+        var hand = amplitude > 0f ? _pushController : OVRInput.Controller.None;
+
+        if (_vibratingHand != OVRInput.Controller.None && _vibratingHand != hand)
+            OVRInput.SetControllerVibration(0f, 0f, _vibratingHand);
+        if (hand != OVRInput.Controller.None)
+            OVRInput.SetControllerVibration(0.5f, amplitude, hand);
+        _vibratingHand = hand;
+    }
+
+    void BuildChain()
+    {
+        var segments = wireController.segments;
+        Transform tip = wireController.endAnchorTemp;
+        bool firstIsNearTip = Vector3.Distance(segments[0].position, tip.position)
+                              < Vector3.Distance(segments[segments.Count - 1].position, tip.position);
+
+        int count = segments.Count + 1;
+        _chain = new Transform[count];
+        _bodies = new Rigidbody[count];
+        _grabbables = new Grabbable[count];
+        _interactables = new Behaviour[count][];
+
+        _chain[0] = tip;
+        for (int i = 0; i < segments.Count; i++)
+            _chain[i + 1] = firstIsNearTip ? segments[i] : segments[segments.Count - 1 - i];
+
+        float chainLength = 0f;
+        for (int i = 0; i < count; i++)
+        {
+            _bodies[i] = _chain[i].GetComponent<Rigidbody>();
+            _grabbables[i] = _chain[i].GetComponent<Grabbable>();
+            _interactables[i] = CollectInteractables(_chain[i]);
+            if (i >= 2) chainLength += Vector3.Distance(_chain[i - 1].position, _chain[i].position);
+        }
+        _spacing = Mathf.Max(chainLength / Mathf.Max(1, count - 2), 0.005f);
+    }
+
+    static Behaviour[] CollectInteractables(Transform link)
+    {
+        var found = new List<Behaviour>();
+        foreach (var interactable in link.GetComponentsInChildren<IInteractable>(true))
+            if (interactable is Behaviour behaviour)
+                found.Add(behaviour);
+        return found.ToArray();
+    }
+
+    void BuildPath()
+    {
+        _samples.Clear();
+        _cumLength.Clear();
+        _cumBend.Clear();
+
+        int count = waypoints.Length;
+        for (int i = 0; i < count - 1; i++)
+        {
+            Vector3 p0 = waypoints[Mathf.Max(i - 1, 0)].position;
+            Vector3 p1 = waypoints[i].position;
+            Vector3 p2 = waypoints[i + 1].position;
+            Vector3 p3 = waypoints[Mathf.Min(i + 2, count - 1)].position;
+            int steps = Mathf.Max(1, Mathf.CeilToInt(Vector3.Distance(p1, p2) / sampleSpacing));
+            for (int s = i == 0 ? 0 : 1; s <= steps; s++)
+                _samples.Add(CatmullRom(p0, p1, p2, p3, s / (float)steps));
+        }
+
+        _cumLength.Add(0f);
+        _cumBend.Add(0f);
+        for (int i = 1; i < _samples.Count; i++)
+        {
+            _cumLength.Add(_cumLength[i - 1] + Vector3.Distance(_samples[i - 1], _samples[i]));
+            float bend = i >= 2 ? Vector3.Angle(_samples[i - 1] - _samples[i - 2], _samples[i] - _samples[i - 1]) : 0f;
+            _cumBend.Add(_cumBend[i - 1] + bend);
+        }
+        _pathLength = _cumLength[_cumLength.Count - 1];
+    }
+
+    static Vector3 CatmullRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    {
+        // Centripetal parameterization avoids loops and overshoot at tight corners.
+        float t1 = Knot(p0, p1);
+        float t2 = t1 + Knot(p1, p2);
+        float t3 = t2 + Knot(p2, p3);
+        float u = Mathf.Lerp(t1, t2, t);
+
+        Vector3 a1 = Blend(p0, p1, 0f, t1, u);
+        Vector3 a2 = Blend(p1, p2, t1, t2, u);
+        Vector3 a3 = Blend(p2, p3, t2, t3, u);
+        Vector3 b1 = Blend(a1, a2, 0f, t2, u);
+        Vector3 b2 = Blend(a2, a3, t1, t3, u);
+        return Blend(b1, b2, t1, t2, u);
+    }
+
+    static float Knot(Vector3 a, Vector3 b) => Mathf.Max(Mathf.Sqrt(Vector3.Distance(a, b)), 1e-4f);
+
+    static Vector3 Blend(Vector3 a, Vector3 b, float ta, float tb, float u) =>
+        Vector3.LerpUnclamped(a, b, (u - ta) / (tb - ta));
+
+    int SampleIndex(float distance)
+    {
+        int low = 0;
+        int high = _cumLength.Count - 2;
+        while (low < high)
+        {
+            int mid = (low + high + 1) / 2;
+            if (_cumLength[mid] <= distance) low = mid;
+            else high = mid - 1;
+        }
+        return low;
+    }
+
+    void EnsurePath()
+    {
+        if (_samples.Count < 2) BuildPath();
+    }
+
+    public Vector3 PositionAt(float distance)
+    {
+        EnsurePath();
+        distance = Mathf.Clamp(distance, 0f, _pathLength);
+        int i = SampleIndex(distance);
+        float span = _cumLength[i + 1] - _cumLength[i];
+        float t = span > 0f ? (distance - _cumLength[i]) / span : 0f;
+        return Vector3.Lerp(_samples[i], _samples[i + 1], t);
+    }
+
+    public Vector3 TangentAt(float distance)
+    {
+        EnsurePath();
+        int i = SampleIndex(Mathf.Clamp(distance, 0f, _pathLength));
+        return (_samples[i + 1] - _samples[i]).normalized;
+    }
+
+    /// <summary>Grados de curva acumulados desde la entrada hasta esa distancia.</summary>
+    public float BendAt(float distance)
+    {
+        EnsurePath();
+        return _cumBend[SampleIndex(Mathf.Clamp(distance, 0f, _pathLength))];
+    }
+
+    void OnDrawGizmos()
     {
         if (waypoints == null || waypoints.Length < 2) return;
-        Gizmos.color = _active ? Color.green : Color.yellow;
-        for (int i = 0; i < waypoints.Length - 1; i++)
-        {
-            if (waypoints[i] != null && waypoints[i + 1] != null)
-                Gizmos.DrawLine(waypoints[i].position, waypoints[i + 1].position);
-        }
-        if (waypoints[0] != null)
-        {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(waypoints[0].position, entryRadius);
-        }
-        if (_active && _cumDist != null)
+        foreach (var waypoint in waypoints)
+            if (waypoint == null) return;
+
+        if (!Application.isPlaying) BuildPath();
+        if (_samples.Count < 2) return;
+
+        Gizmos.color = IsComplete ? Color.green : IsEngaged ? Color.cyan : Color.yellow;
+        for (int i = 1; i < _samples.Count; i++)
+            Gizmos.DrawLine(_samples[i - 1], _samples[i]);
+
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(_samples[0], entryRadius);
+
+        if (IsEngaged)
         {
             Gizmos.color = Color.magenta;
-            Gizmos.DrawSphere(EvaluatePosition(_progress), 0.03f);
+            Gizmos.DrawSphere(PositionAt(_progress), 0.02f);
         }
     }
 }

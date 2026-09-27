@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.coplaydev.unity-mcp": "file:C:/Users/efeli/Downloads/unity-mcp-main/unity-mcp-main/MCPForUnity",
     "com.meta.xr.mrutilitykit": "85.0.0",
     "com.meta.xr.sdk.all": "201.0.0",
     "com.meta.xr.sdk.audio": "85.0.0",
