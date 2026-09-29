@@ -17,6 +17,8 @@ public abstract class TutorialStep : MonoBehaviour
     public Transform[] pathPoints;
     [Tooltip("Objetos visibles solo durante este paso (marcadores, flechas).")]
     public GameObject[] visibleDuringStep;
+    [Tooltip("Objetos que aparecen al empezar este paso y se quedan (por ejemplo, cables que salen hasta aquí).")]
+    public GameObject[] showFromStep = new GameObject[0];
 
     protected TutorialContext Context { get; private set; }
 
@@ -26,6 +28,8 @@ public abstract class TutorialStep : MonoBehaviour
     public virtual void Begin(TutorialContext context)
     {
         Context = context;
+        foreach (var go in showFromStep)
+            if (go != null) go.SetActive(true);
         SetVisible(true);
     }
 

@@ -83,6 +83,26 @@ public class ConduitPathGuide : MonoBehaviour
     /// <summary>Punta del cable (eslabón que entra primero). Null antes de Start.</summary>
     public Transform Tip => _chain != null ? _chain[0] : null;
 
+    /// <summary>
+    /// Suelta los eslabones que quedaron antes de esa distancia del recorrido (por ejemplo, el tramo de la
+    /// entrada que no está dentro del tubo) para que formen parte del cable libre. Solo después de terminar.
+    /// </summary>
+    public void ReleaseBefore(float distance)
+    {
+        if (_chain == null || !IsComplete) return;
+        while (_inside > 1 && Mathf.Clamp(_progress + _slack - (_inside - 1) * _spacing, 0f, _progress) < distance)
+            ReleaseLink(_inside - 1);
+    }
+
+    /// <summary>Si ese eslabón ya está dentro del ducto.</summary>
+    public bool IsInside(Transform link)
+    {
+        if (_chain == null) return false;
+        for (int i = 0; i < _inside; i++)
+            if (_chain[i] == link) return true;
+        return false;
+    }
+
     readonly List<Vector3> _samples = new List<Vector3>();
     readonly List<float> _cumLength = new List<float>();
     readonly List<float> _cumBend = new List<float>();
