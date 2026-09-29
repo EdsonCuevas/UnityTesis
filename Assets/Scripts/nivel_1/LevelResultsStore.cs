@@ -9,6 +9,7 @@ public class LevelStepResult
     public string paso;
     public float segundos;
     public int avisos;
+    public int errores;
 }
 
 [Serializable]
@@ -18,6 +19,7 @@ public class LevelAttempt
     public string fecha;
     public float segundosTotales;
     public int avisos;
+    public int errores;
     public LevelStepResult[] pasos;
 }
 

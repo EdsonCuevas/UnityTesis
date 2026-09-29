@@ -7,7 +7,7 @@ using UnityEngine;
 /// donde quede apretada y los lugares equivocados se registran como errores. Una conexión puede aceptar
 /// varias puntas (los dos extremos del puente); cada punta llena una sola conexión.
 /// </summary>
-public class MeterTerminalStep : TutorialStep
+public class MeterTerminalStep : TutorialStep, IStepErrors
 {
     const string UnstrippedHint = "Pela la punta antes de conectarla";
     const string ClosedHint = "Afloja el tornillo de la terminal para poder meter el cable";
@@ -52,6 +52,7 @@ public class MeterTerminalStep : TutorialStep
 
     /// <summary>Puntas que entraron en una terminal equivocada durante el paso.</summary>
     public int WrongConnections { get; private set; }
+    public int Errors => WrongConnections;
 
     float[] startDistances;
     float seatedSince;

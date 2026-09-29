@@ -13,7 +13,7 @@ Imagen de referencia: [`conexion_medidor_monofasico.jpeg`](conexion_medidor_mono
 - [x] **Etapa 1**: terminal, destornillador y pasos 11–13 (acometida) — falta la prueba en el visor (tarea 7)
 - [x] **Etapa 2**: puente de neutro (pasos 15–16) — falta la prueba en el visor
 - [x] **Etapa 3**: cables de carga (pasos 17–20) — falta la prueba en el visor
-- [ ] **Etapa 4**: tirón de prueba (paso 20), errores en resultados, pulir el acomodo del cable, textos de narración
+- [x] **Etapa 4**: errores en resultados y narración (audios asignados). El tirón de prueba se hizo y después se quitó a pedido del usuario. Falta la prueba en el visor
 
 Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué hay que ajustar según la prueba en el visor):
 
@@ -91,6 +91,71 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
 - **Relevo para la etapa 4 (tirón de prueba, errores, narración)**:
   - Los cables para `TugTestStep` son 7 puntas: fase, neutro y tierra de acometida (`StartAnchor` de `Fase`/`Neutro`/`Tierra`), las 2 del puente (una por cada terminal donde quede) y las 2 de carga (`StartAnchor` de `Carga_Fase`/`Carga_Neutro`). Ya apretadas, sus eslabones cercanos están fijos (cinemáticos y sin agarre), así que el tirón debe medirse agarrando el primer eslabón libre después del acomodo, o hay que dejar agarrable un eslabón del acomodo.
   - Crear el paso 21 antes de `22_cerrar_registro`; los errores de cada `MeterTerminalStep` están en `WrongConnections`.
+
+- **Etapa 4 (2026-09-28)**:
+  - **`TugTestStep`** (nuevo, `Assets/Scripts/nivel_1/Medidor/`), paso `21_tiron_de_prueba` en `LevelManager.steps` antes de `22_cerrar_registro` (el nivel ya tiene 22 pasos). Título "Haz el tirón de prueba". Prueba 7 puntas en la terminal donde hayan quedado: `Fase`, `Neutro`, `Tierra`, las 2 del `Puente_Neutro` y `Carga_Fase`/`Carga_Neutro`.
+  - Como el tramo acomodado está fijo y sin agarre de Meta, el agarre **no** usa `Grabbable`: con el grip (`PrimaryHandTrigger` ≥ 0.6) a ≤ 6 cm de un eslabón acomodado, dentro de los primeros 8 cm desde la boca, empieza el tirón; al alejar la mano 3 cm cuenta como probado (vibración fuerte y aviso verde "Conexión firme (n de 7)", en los dos modos). Mientras jala, el cable se estira hasta 6 mm hacia la mano (nada en la punta, todo en el eslabón agarrado y menos en los 4 siguientes) y vibra según la distancia.
+  - `MeterTerminal.Nudges` (diccionario estático eslabón → desplazamiento) lo aplican todas las terminales que fijan ese eslabón, porque los dos extremos del puente comparten eslabones. `MeterTerminal.Seated` y `DressedLinks` exponen el acomodo. A igual distancia gana la terminal más cercana a lo largo del cable.
+  - Los cables sin probar pulsan (`WireGrab.Only`); el que está bajo la mano o se está jalando se ilumina fijo (`WireGrab.Emphasized`, nuevo). La `Flecha_Terminal` señala el siguiente cable sin probar (a 3 cm de su boca). Controles resaltados: los dos grips.
+  - Avisos: "Agarra con el grip cada cable cerca de su terminal y jálalo hacia ti" (10 s sin probar ninguno), "Acerca la mano al cable que brilla, junto a su terminal" (grip lejos de un cable), "Jala el cable unos centímetros hacia ti" (3 s sosteniendo sin llegar).
+  - Una punta que no esté apretada no se puede probar hasta volver a apretarla (solo pasaría en Evaluación, si se afloja una conexión equivocada).
+  - **Errores en resultados**: interfaz `IStepErrors` (`nivel_1/IStepErrors.cs`); `MeterTerminalStep` la implementa con `WrongConnections`. `LevelStepResult.errores` y `LevelAttempt.errores` en el JSON; el panel final agrega "Conexiones incorrectas: N" en los dos modos.
+  - "de el neutro" ya estaba corregido desde la etapa 1. El sobrante de la acometida se resolvió en la etapa 1 (corte + acomodo de todo el tramo libre); lo demás del acomodo se pule según lo que se vea en el visor.
+  - **Pendiente de probar en el visor**: si 6 cm y 8 cm de alcance se sienten bien con el control (el ancla del control está algo atrás de donde agarra la mano); si en el conector (3 cables a 1.35 cm) se ilumina el cable correcto; si el estiramiento de 6 mm se nota.
+  - **Pendiente**: los audios de la tabla "Textos de narración pendientes". Cuando existan, asignarlos en `narration` de cada paso y en `LevelManager.voiceCues` (el texto del aviso debe ser idéntico).
+
+- **Ajuste tras probar (2026-09-28)**:
+  - **Se quitó el tirón de prueba**: al usuario le pareció inútil y tedioso. `21_tiron_de_prueba` salió de `LevelManager.steps`, se desactivó y se renombró a `x_21_tiron_de_prueba`. `TugTestStep`, `MeterTerminal.Nudges` y `WireGrab.Emphasized` siguen en el código sin usarse. El nivel queda con **21 pasos** y el último se renombró a `21_cerrar_registro`.
+  - **Audios**: el usuario generó los WAV con `generar_voces_medidor.ps1` (raíz del proyecto), pero no sonaban porque no estaban asignados. Ya se asignaron `narration` en los pasos 08 y 12–20 y 17 avisos nuevos en `LevelManager.voiceCues` (33 en total). `21_tiron_de_prueba.wav` y los 3 `aviso_tiron_*` no se usan.
+
+---
+
+## Textos de narración pendientes (etapa 4)
+
+Voz: Microsoft Sabina Desktop (es-MX), velocidad por defecto, WAV 22050 Hz mono 16 bits, igual que los audios que ya hay. Los pasos narran su `body` tal cual (sin el título). Nombres sugeridos: los pasos en `Assets/Audio/Nivel1/<objeto del paso>.wav` y los avisos en `Assets/Audio/Nivel1/Avisos/<nombre>.wav`.
+
+### Pasos (`narration`)
+
+| Clip | Texto |
+|---|---|
+| `08_cortar_sobrante` | Deja unos 40 centímetros de cada cable desde donde sale del tubo, abajo del medidor. Toma las pinzas, pon sus quijadas sobre la marca de cada cable y aprieta el gatillo para cortar. El tramo que sobra se retira. |
+| `12_conectar_fase_acometida` | Lleva la punta pelada del cable rojo a la terminal de línea, arriba a la izquierda, y métela por el lado de adentro. Luego toma el destornillador, apóyalo en el tornillo de esa terminal, mantén el gatillo y gira la muñeca a la derecha hasta que apriete. |
+| `13_conectar_neutro_acometida` | Mete la punta pelada del cable negro por abajo del conector de neutro, el bloque de cobre del centro. Después aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha. |
+| `14_conectar_tierra` | La tierra también va al conector de neutro, porque ahí se unen el neutro y la tierra. Mete la punta pelada del cable verde por abajo, en una entrada libre, y aprieta su tornillo. |
+| `15_pelar_puente` | Toma el cable negro corto que está en el piso, junto al destornillador. Pela sus dos puntas: coloca las pinzas sobre la marca, aprieta el gatillo y jala hacia la punta mientras sostienes el cable con la otra mano. |
+| `16_colocar_puente` | Mete una punta del puente por abajo del conector de neutro, en la entrada libre, y la otra en la terminal de arriba a la derecha, por el lado de adentro. Aprieta los dos tornillos con el destornillador. |
+| `17_pelar_fase_carga` | El cable rojo que sale por el hueco de atrás de la base va hacia la casa. Sácalo hacia ti, coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano. |
+| `18_pelar_neutro_carga` | El cable negro que sale por el hueco de atrás de la base va hacia la casa. Sácalo hacia ti, coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano. |
+| `19_conectar_fase_carga` | Lleva la punta pelada del cable rojo de carga a la terminal de abajo a la izquierda y métela por el lado de adentro. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha. |
+| `20_conectar_neutro_carga` | Lleva la punta pelada del cable negro de carga a la terminal de abajo a la derecha y métela por el lado de adentro. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha. |
+| `21_tiron_de_prueba` | Comprueba que cada conexión quedó firme: agarra con el grip cada cable cerca de su terminal y jálalo un poco hacia ti. Una conexión bien apretada no se mueve. |
+
+### Avisos (`voiceCues`; el texto debe ser idéntico)
+
+| Clip | Texto | Dónde |
+|---|---|---|
+| `aviso_cortar_sobre_marca` | Ahí no: corta sobre la marca, a unos 40 centímetros de donde sale el cable del tubo | `CutWireStep` |
+| `aviso_quijadas_marca` | Pon las quijadas de las pinzas sobre la marca del cable y aprieta el gatillo | `CutWireStep` |
+| `aviso_sostener_puente` | Sostén el puente con la otra mano para poder jalar | paso 15 |
+| `aviso_pelar_antes` | Pela la punta antes de conectarla | `MeterTerminalStep` |
+| `aviso_aflojar_tornillo` | Afloja el tornillo de la terminal para poder meter el cable | `MeterTerminalStep` |
+| `aviso_cable_se_salio` | El cable se salió: vuelve a meterlo y aprieta el tornillo | `MeterTerminalStep` |
+| `aviso_tomar_destornillador` | Toma el destornillador y aprieta el tornillo de la terminal | `MeterTerminalStep` |
+| `aviso_apoyar_destornillador` | Apoya la punta del destornillador en el tornillo, de frente | `MeterTerminalStep` |
+| `aviso_girar_muneca` | Mantén el gatillo y gira la muñeca a la derecha para apretar | `MeterTerminalStep` |
+| `aviso_soltar_gatillo` | Suelta el gatillo para regresar la muñeca | `MeterTerminalStep` |
+| `aviso_lugar_equivocado` | Ese no es su lugar: saca el cable y revisa a dónde va | `MeterTerminalStep` |
+| `aviso_lugar_fase` | Ese no es su lugar: la fase va en la terminal de línea, arriba a la izquierda | paso 12 |
+| `aviso_lugar_neutro` | Ese no es su lugar: el neutro va en el conector de neutro, al centro | paso 13 |
+| `aviso_lugar_tierra` | Ese no es su lugar: la tierra va en el conector de neutro, al centro | paso 14 |
+| `aviso_lugar_puente` | Ese no es su lugar: el puente va del conector de neutro a la terminal de arriba a la derecha | paso 16 |
+| `aviso_lugar_fase_carga` | Ese no es su lugar: la fase de carga va en la terminal de abajo a la izquierda | paso 19 |
+| `aviso_lugar_neutro_carga` | Ese no es su lugar: el neutro de carga va en la terminal de abajo a la derecha | paso 20 |
+| `aviso_tiron_agarrar` | Agarra con el grip cada cable cerca de su terminal y jálalo hacia ti | `TugTestStep` |
+| `aviso_tiron_acercar` | Acerca la mano al cable que brilla, junto a su terminal | `TugTestStep` |
+| `aviso_tiron_jalar` | Jala el cable unos centímetros hacia ti | `TugTestStep` |
+
+Los avisos de sostener el cable rojo, negro y verde (pasos 9–11, 17–18) ya tienen audio.
 
 ---
 

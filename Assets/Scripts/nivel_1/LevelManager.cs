@@ -54,16 +54,19 @@ public class LevelManager : GuidedFlowManager
 
     protected override void OnStepCompleted(int index, float seconds, int hints)
     {
-        stepResults.Add(new LevelStepResult { paso = steps[index].title, segundos = seconds, avisos = hints });
+        int errors = steps[index] is IStepErrors counted ? counted.Errors : 0;
+        stepResults.Add(new LevelStepResult { paso = steps[index].title, segundos = seconds, avisos = hints, errores = errors });
     }
 
     protected override void OnAllStepsCompleted()
     {
         int hints = 0;
+        int errors = 0;
         LevelStepResult slowest = null;
         foreach (var result in stepResults)
         {
             hints += result.avisos;
+            errors += result.errores;
             if (slowest == null || result.segundos > slowest.segundos) slowest = result;
         }
 
@@ -73,6 +76,7 @@ public class LevelManager : GuidedFlowManager
             fecha = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
             segundosTotales = Time.time - startedAt,
             avisos = hints,
+            errores = errors,
             pasos = stepResults.ToArray()
         };
         var record = LevelResultsStore.SaveAttempt(levelId, attempt);
@@ -82,6 +86,7 @@ public class LevelManager : GuidedFlowManager
             $"Tiempo total: {FormatTime(attempt.segundosTotales)}\n" +
             $"Mejor tiempo en este modo: {FormatTime(record.BestSeconds(attempt.modo))}\n" +
             $"{(CurrentMode == Mode.Practica ? "Avisos recibidos" : "Dificultades detectadas")}: {hints}\n" +
+            $"Conexiones incorrectas: {errors}\n" +
             (slowest != null ? $"Paso más tardado: {slowest.paso} ({FormatTime(slowest.segundos)})" : string.Empty);
 
         panel.MoveTo(resultsPanelAnchor);

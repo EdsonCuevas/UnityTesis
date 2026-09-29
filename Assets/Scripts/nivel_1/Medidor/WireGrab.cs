@@ -24,6 +24,8 @@ public class WireGrab : MonoBehaviour
     public bool Locked { get; private set; }
     /// <summary>Una mano está sobre el cable o lo sostiene.</summary>
     public bool Hovered { get; private set; }
+    /// <summary>Se ilumina fijo como en hover aunque sus eslabones no se puedan agarrar (tirón de prueba).</summary>
+    public bool Emphasized { get; set; }
 
     readonly List<GameObject> grabObjects = new List<GameObject>();
     readonly List<IInteractableView> views = new List<IInteractableView>();
@@ -59,6 +61,7 @@ public class WireGrab : MonoBehaviour
         SetLocked(false);
         Highlighted = false;
         Hovered = false;
+        Emphasized = false;
         Paint(0f);
     }
 
@@ -119,7 +122,7 @@ public class WireGrab : MonoBehaviour
                 }
 
         float amount = 0f;
-        if (Hovered) amount = hoverAmount;
+        if (Hovered || Emphasized) amount = hoverAmount;
         else if (Highlighted) amount = Mathf.Lerp(pulseMin, pulseMax, 0.5f + 0.5f * Mathf.Sin(Time.time * pulseSpeed));
         Paint(amount);
     }
