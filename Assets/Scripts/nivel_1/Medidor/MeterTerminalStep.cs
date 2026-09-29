@@ -94,6 +94,8 @@ public class MeterTerminalStep : TutorialStep
         for (int i = 0; i < connections.Length; i++)
             startDistances[i] = Mathf.Clamp(DistanceToTerminal(connections[i]), 0.05f, 10f);
 
+        WireGrab.Only(StepWires(), Occupants());
+
         WrongConnections = 0;
         seatedWire = null;
         heldSince = float.PositiveInfinity;
@@ -105,7 +107,26 @@ public class MeterTerminalStep : TutorialStep
     {
         MeterTerminal.WireInserted -= OnWireInserted;
         MeterTerminal.WirePulledOut -= OnWirePulledOut;
+        WireGrab.Free();
         base.End();
+    }
+
+    IEnumerable<WireStripper> StepWires()
+    {
+        foreach (var connection in connections)
+            foreach (var wire in connection.Wires)
+                yield return wire;
+    }
+
+    /// <summary>
+    /// Cables que un paso anterior dejó en las terminales de este (en evaluación cuenta cualquier lugar):
+    /// hay que poder sacarlos para liberar la terminal.
+    /// </summary>
+    IEnumerable<WireStripper> Occupants()
+    {
+        foreach (var connection in connections)
+            foreach (var terminal in connection.terminals)
+                if (terminal != null && terminal.Wire != null) yield return terminal.Wire;
     }
 
     public override void Tick()

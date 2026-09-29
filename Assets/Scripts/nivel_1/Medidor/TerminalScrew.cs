@@ -18,6 +18,8 @@ public class TerminalScrew : MonoBehaviour
     public float Turns { get; private set; }
     public bool IsTight => Turns >= requiredTurns - 0.001f;
     public float Progress01 => Mathf.Clamp01(Turns / requiredTurns);
+    /// <summary>Apretado con su cable correcto: ya no se puede aflojar ni acoplar el destornillador.</summary>
+    public bool Locked { get; set; }
     /// <summary>Eje del tornillo, hacia afuera.</summary>
     public Vector3 Axis => head.forward;
     /// <summary>Centro de la cabeza, donde se apoya la punta del destornillador.</summary>
@@ -38,6 +40,7 @@ public class TerminalScrew : MonoBehaviour
     /// <summary>Gira el tornillo; positivo aprieta. Regresa los grados que sí giró, porque se detiene en los topes.</summary>
     public float Turn(float degrees)
     {
+        if (Locked) return 0f;
         float before = Turns;
         Turns = Mathf.Clamp(Turns + degrees / 360f, 0f, requiredTurns);
 

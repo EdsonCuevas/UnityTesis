@@ -37,6 +37,7 @@ public class StripWireStep : TutorialStep
         base.Begin(context);
         nextHintTime = 0f;
         SetEnabled(true);
+        WireGrab.Only(Strippers());
     }
 
     public override void Tick()
@@ -55,6 +56,7 @@ public class StripWireStep : TutorialStep
     public override void End()
     {
         SetEnabled(false);
+        WireGrab.Free();
         base.End();
     }
 
@@ -62,6 +64,12 @@ public class StripWireStep : TutorialStep
     {
         stripper.enabled = enabled;
         foreach (var other in otherStrippers) other.enabled = enabled;
+    }
+
+    System.Collections.Generic.IEnumerable<WireStripper> Strippers()
+    {
+        yield return stripper;
+        foreach (var other in otherStrippers) yield return other;
     }
 
     // With several tips, the strip mark of a finished one would still show until the step ends.

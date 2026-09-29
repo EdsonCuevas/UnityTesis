@@ -27,6 +27,8 @@ public class Screwdriver : MonoBehaviour
     public float maxEngageAngle = 60f;
     [Tooltip("Cuánto puede alejarse el control, desde donde se acopló, antes de soltar el tornillo.")]
     public float releaseDistance = 0.08f;
+    [Tooltip("Al terminar un tornillo, cuánto más allá del radio de acople hay que alejar la punta para acoplarse a otro.")]
+    public float awayDistance = 0.02f;
 
     public bool IsHeld => grabbable.SelectingPointsCount > 0;
     public bool Engaged => CurrentScrew != null;
@@ -42,6 +44,7 @@ public class Screwdriver : MonoBehaviour
 
     Transform ghost;
     Transform hand;
+    TerminalScrew finishedScrew;
     OVRInput.Controller controller;
     Vector3 handAtEngage;
     Quaternion ghostBase;
@@ -86,8 +89,11 @@ public class Screwdriver : MonoBehaviour
             return;
         }
 
-        if (Vector3.Distance(hand.position, handAtEngage) > releaseDistance)
+        // Once the terminal locks, let go so the finished screw can't be worked any more.
+        if (CurrentScrew.Locked || Vector3.Distance(hand.position, handAtEngage) > releaseDistance)
         {
+            // Otherwise the next connector screw, 1.35 cm away, would couple while still twisting.
+            if (CurrentScrew.Locked) finishedScrew = CurrentScrew;
             Disengage();
             return;
         }
@@ -128,11 +134,18 @@ public class Screwdriver : MonoBehaviour
 
     void TryEngage()
     {
+        if (finishedScrew != null)
+        {
+            if (Vector3.Distance(tip.position, finishedScrew.HeadPoint) < engageRadius + awayDistance) return;
+            finishedScrew = null;
+        }
+
         // The neutral connector screws sit close together, so take the nearest one.
         TerminalScrew nearest = null;
         float nearestDistance = engageRadius;
         foreach (var screw in TerminalScrew.All)
         {
+            if (screw.Locked) continue;
             float distance = Vector3.Distance(tip.position, screw.HeadPoint);
             if (distance > nearestDistance) continue;
             nearest = screw;

@@ -172,6 +172,8 @@ public class MeterTerminal : MonoBehaviour
     void Tighten()
     {
         State = TerminalState.Tightened;
+        // A correct connection can't be loosened by accident; a wrong one stays loosenable to fix it.
+        screw.Locked = HasCorrectWire;
         BuildDress();
         OnTightened.Invoke();
     }
