@@ -37,7 +37,20 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - **Segunda prueba en el visor: seguía sobrando cable.** Causa: el recorrido del ducto empieza 25 cm antes de la boca real del tubo (y 1.135), en el frente de la carcasa (z 0.47 → 0.32), donde se enganchan los cables a la guía. El cable libre salía hacia el jugador y tenía que dar vuelta en U. Arreglo:
     - `ConduitPathGuide.ReleaseBefore(distancia)`: `WireCutter.Prepare` suelta los eslabones antes de `mouthDistance` = 0.25 m, así que el cable libre sale de la boca del tubo dentro de la base. El corte ahora deja 40 cm ± 10 medidos desde ahí.
     - Al apretar, `MeterTerminal` busca el primer eslabón fijo por otro sistema (cinemático y sin mano; por ejemplo, el primero dentro del ducto) a 60 eslabones o menos, y reparte **todo** el tramo libre entre la boca de la terminal, los puntos de acomodo y ese eslabón (con la separación ajustada). No queda bucle aunque se corte largo. Esto también sirve para el puente (etapa 2): su segundo extremo se acomoda hasta el primero.
+  - **Tercera prueba: el negro seguía atravesando el medidor.** Causas: (1) la carcasa no tenía colisión útil para los cables, así que el cable libre caía por el fondo; (2) la caja `Abajo` del murete llegaba a y 1.175 y cubría la boca del tubo (y 1.135), por lo que los eslabones que salían del tubo nacían dentro de ella. Arreglo:
+    - `Medidor_Colisiones`: 20 cajas en anillo (radio interior 0.175, z 0.17–0.43) con hueco para el tubo en la pared de abajo (z 0.245–0.33), y fondo en z 0.15–0.192 con hueco pasante de 6.4 cm al centro para la etapa 3.
+    - `Murete2_Colisiones/Abajo` ahora llega a y 1.05; encima hay 4 cajas alrededor de un canal para el tubo (x 7.458–7.568, z 0.232–0.345). Las de adelante y atrás del canal llegan a y 1.155 para no tocar el fondo interior de la carcasa.
+    - Comprobado en edición: el tramo que se suelta (0–25 cm del ducto), las bocas y los puntos de acomodo no tocan ninguna caja.
   - **Pendiente de probar en el visor**: cómo se siente meter la punta (radio 3 cm, 60°), el montaje del destornillador (1.5 cm, 30°) y si la orientación del agarre deja girar la muñeca sobre el vástago; la altura z de las bocas (0.2255 zapatas, 0.2015 conector); que el sobrante cuelgue sin estorbar; el tamaño y lugar de la flecha.
+
+- **Relevo para la etapa 2 (puente de neutro, pasos 15–16 de la tabla nueva)**:
+  - El usuario considera la etapa 1 lista para seguir; lo pendiente de visor (radios, ángulos, acomodo) se ajusta cuando lo reporte.
+  - La terminal del puente en el conector ya existe: `Terminal_Neutro_Der` (x 7.4995, tornillo `GEO_Tuerca6_Der`). Solo tiene 1 punto de acomodo; hay que darle ruta hacia la zapata de arriba a la derecha. Falta crear la terminal de esa zapata: tornillo `GEO_Tuerca10` (x 7.414), boca en el lado de adentro (x ≈ 7.432), entrando hacia −X, z ≈ 0.2255.
+  - Agregar las 2 puntas del puente a `accepts` de las 3 terminales del conector y de la zapata nueva. `MeterTerminal` encuentra todas las `WireStripper` de la escena en `Start`, así que el puente se detecta solo.
+  - `WireTip` ya ordena los eslabones desde cualquiera de los dos extremos (`StartAnchor` o `EndAnchor`). El prefab `EndAnchor` no trae `PuntaPelable`: hay que duplicarla desde un `StartAnchor` y asignar `WireEndAligner.neighbor` y `WireStripper.cableHandles` de ese extremo.
+  - Al apretar el segundo extremo del puente, `MeterTerminal.BuildDress` encuentra el primer extremo (sus eslabones fijos son cinemáticos) y reparte todo el puente entre ambos, así que no queda bucle.
+  - Nuevos objetos que choquen con cables: revisar que no traslapen `Medidor_Colisiones` ni `Murete2_Colisiones` (cualquier eslabón libre dentro de una caja tiembla).
+  - Nunca recompilar ni editar la escena mientras Unity esté en Play (el SDK de Meta truena con la recarga de scripts y los cambios se pierden). Revisar `EditorApplication.isPlaying` antes de tocar la escena.
 
 ---
 
