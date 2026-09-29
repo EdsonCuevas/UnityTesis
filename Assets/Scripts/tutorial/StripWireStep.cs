@@ -3,25 +3,49 @@ using UnityEngine;
 public class StripWireStep : TutorialStep
 {
     public WireStripper stripper;
+    [Tooltip("Otras puntas que se pelan en el mismo paso, por ejemplo el otro extremo del puente.")]
+    public WireStripper[] otherStrippers = new WireStripper[0];
     public string holdCableHint = "Sostén el cable blanco con la otra mano para poder jalar";
 
     float nextHintTime;
 
-    public override float Progress => stripper.Progress01;
-    public override bool IsComplete => stripper.IsStripped;
+    public override float Progress
+    {
+        get
+        {
+            float sum = stripper.Progress01;
+            foreach (var other in otherStrippers) sum += other.Progress01;
+            return sum / (1 + otherStrippers.Length);
+        }
+    }
 
-    void Awake() => stripper.enabled = false;
+    public override bool IsComplete
+    {
+        get
+        {
+            if (!stripper.IsStripped) return false;
+            foreach (var other in otherStrippers)
+                if (!other.IsStripped) return false;
+            return true;
+        }
+    }
+
+    void Awake() => SetEnabled(false);
 
     public override void Begin(TutorialContext context)
     {
         base.Begin(context);
         nextHintTime = 0f;
-        stripper.enabled = true;
+        SetEnabled(true);
     }
 
     public override void Tick()
     {
-        if (stripper.WaitingForCableHold && Time.time > nextHintTime)
+        HideStrippedMarks();
+
+        bool waiting = stripper.WaitingForCableHold;
+        foreach (var other in otherStrippers) waiting |= other.WaitingForCableHold;
+        if (waiting && Time.time > nextHintTime)
         {
             Context.ShowHint(holdCableHint);
             nextHintTime = Time.time + 3f;
@@ -30,7 +54,28 @@ public class StripWireStep : TutorialStep
 
     public override void End()
     {
-        stripper.enabled = false;
+        SetEnabled(false);
         base.End();
     }
+
+    void SetEnabled(bool enabled)
+    {
+        stripper.enabled = enabled;
+        foreach (var other in otherStrippers) other.enabled = enabled;
+    }
+
+    // With several tips, the strip mark of a finished one would still show until the step ends.
+    void HideStrippedMarks()
+    {
+        if (otherStrippers.Length == 0) return;
+        foreach (var go in visibleDuringStep)
+        {
+            if (go == null || !go.activeSelf) continue;
+            if (Stripped(stripper, go)) go.SetActive(false);
+            foreach (var other in otherStrippers)
+                if (Stripped(other, go)) go.SetActive(false);
+        }
+    }
+
+    static bool Stripped(WireStripper tip, GameObject go) => tip.IsStripped && go.transform.IsChildOf(tip.transform);
 }

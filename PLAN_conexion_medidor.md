@@ -11,7 +11,7 @@ Imagen de referencia: [`conexion_medidor_monofasico.jpeg`](conexion_medidor_mono
 ## Estado
 
 - [x] **Etapa 1**: terminal, destornillador y pasos 11–13 (acometida) — falta la prueba en el visor (tarea 7)
-- [ ] **Etapa 2**: puente de neutro (pasos 14–15)
+- [x] **Etapa 2**: puente de neutro (pasos 15–16) — falta la prueba en el visor
 - [ ] **Etapa 3**: cables de carga (pasos 16–19)
 - [ ] **Etapa 4**: tirón de prueba (paso 20), errores en resultados, pulir el acomodo del cable, textos de narración
 
@@ -51,6 +51,24 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - Al apretar el segundo extremo del puente, `MeterTerminal.BuildDress` encuentra el primer extremo (sus eslabones fijos son cinemáticos) y reparte todo el puente entre ambos, así que no queda bucle.
   - Nuevos objetos que choquen con cables: revisar que no traslapen `Medidor_Colisiones` ni `Murete2_Colisiones` (cualquier eslabón libre dentro de una caja tiembla).
   - Nunca recompilar ni editar la escena mientras Unity esté en Play (el SDK de Meta truena con la recarga de scripts y los cambios se pierden). Revisar `EditorApplication.isPlaying` antes de tocar la escena.
+
+- **Etapa 2 (2026-09-28)**:
+  - **Cable `Puente_Neutro`** (raíz): negro, 14 eslabones + 2 anclas, unos 26 cm, en el piso sobre la banqueta (x 7.35–7.61, z 1.25), entre el tubo y el rollo rojo. La raíz, `WireRender` y `Helper` (apagado; en build no se oculta solo) salen del prefab `WireBuilder`, pero los eslabones y las **dos** anclas son **clones de los del cable `Neutro`**, porque el prefab no trae lo que se les agregó (agarres de Meta, interpolación, escala). Las dos anclas son copias del `StartAnchor` con su `PuntaPelable`; el `EndAnchor(Clone)` además lleva una `ConfigurableJoint` (copia de la de un eslabón) unida al último eslabón. Las 2 `PuntaPelable` tienen su `WireEndAligner.neighbor` y en `cableHandles` todo el puente (cualquier parte cuenta como sostenerlo). Se revisó que ninguna referencia apunte al `Neutro`.
+  - **Terminal `Terminal_Puente`** (en `Medidor_Terminales`): boca en (7.4328, 1.3775, 0.2255), entra hacia −X, tornillo `GEO_Tuerca10`, 1 vuelta, etiqueta "la terminal de arriba a la derecha", acepta solo las 2 puntas del puente. Acomodo: `Acomodo_0` (7.452, 1.3775, 0.2255) y `Acomodo_1` (7.470, 1.3755, 0.222).
+  - `Terminal_Neutro_Der` ahora tiene `Acomodo_1` (7.488, 1.372, 0.215) para que el puente salga hacia la derecha por encima del hueco. Las 3 entradas del conector aceptan también las 2 puntas del puente. Se comprobó en edición con una vista previa del puente acomodado: baja del conector, pasa sobre el hueco y entra por el lado de adentro de la zapata (~9 cm de ruta). Ninguna boca ni punto de acomodo nuevo toca las cajas de colisión.
+  - **Código**:
+    - `StripWireStep.otherStrippers`: más puntas en el mismo paso (el progreso se promedia; al pelar una punta se oculta su `MarcaPelado` si está en `visibleDuringStep`).
+    - `MeterTerminalStep.Connection.otherWires`: una conexión acepta cualquiera de varias puntas; cada punta llena solo una conexión. El puente usa dos conexiones con las mismas 2 puntas: conector (Izq/Centro/Der) y zapata (`Terminal_Puente`). Meter la segunda punta en el conector cuenta como conexión equivocada (`AlreadyFilled`) aunque la terminal la acepte. En Evaluación, una punta mal puesta solo llena una conexión (`ClaimedByOther`). `Pending()` prefiere la conexión con una punta metida sin apretar, para que la flecha y los avisos sigan a esa.
+  - **Pasos nuevos** (en `LevelManager.steps` después de `14_conectar_tierra`):
+    - `15_pelar_puente` (StripWireStep, puntas A y B): "Pela el puente de neutro". Aviso "Sostén el puente con la otra mano para poder jalar". Línea guía y marcador nuevo `Marcadores/Flecha_Puente` (copia de `Flecha_Cinta`, sigue el eslabón del centro).
+    - `16_colocar_puente` (MeterTerminalStep, 2 conexiones): "Coloca el puente de neutro". Aviso de lugar equivocado: "Ese no es su lugar: el puente va del conector de neutro a la terminal de arriba a la derecha".
+    - Sin narración todavía (textos en los pasos; audios en la etapa 4).
+  - **Pendiente de probar en el visor**: agarrar y pelar un cable corto suelto en el piso (¿se mueve demasiado al jalar con las pinzas?); meter la punta en la zapata por el lado de adentro (el destornillador y la mano cerca del conector); cómo queda el puente al apretar el segundo extremo (todo el sobrante se reparte en ~9 cm).
+
+- **Relevo para la etapa 3 (cables de carga, pasos 17–20)**:
+  - Crear los cables igual que el puente: clonar eslabones y ancla del cable real (`Fase` para el rojo, `Neutro` para el negro) y dejar un extremo fijo (cinemático) oculto en el hueco trasero (centro 7.51, 1.34; el murete tiene hueco pasante y `Murete2_Colisiones`/`Medidor_Colisiones` tienen hueco de 6–6.4 cm). La punta pelable va en el otro extremo.
+  - Terminales de carga: `GEO_Tuerca8` (abajo a la izquierda, x 7.613, y 1.309) y `GEO_Tuerca9` (abajo a la derecha, x 7.414). Por simetría con las de arriba, las bocas irían en x 7.594 (hacia +X) y 7.4328 (hacia −X), y ≈ 1.3075, z 0.2255 (confirmar con captura).
+  - Un extremo fijo es cinemático, así que `MeterTerminal.BuildDress` lo encontrará como eslabón fijo si queda a ≤ 60 eslabones: cables de ~40 cm (unos 23 eslabones) sirven.
 
 ---
 

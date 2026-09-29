@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Conectar una o más puntas peladas en las terminales del medidor: meterlas en su boca y apretar el
 /// tornillo con el destornillador. En práctica cada punta debe quedar en su lugar; en evaluación cuenta
-/// donde quede apretada y los lugares equivocados se registran como errores.
+/// donde quede apretada y los lugares equivocados se registran como errores. Una conexión puede aceptar
+/// varias puntas (los dos extremos del puente); cada punta llena una sola conexión.
 /// </summary>
 public class MeterTerminalStep : TutorialStep
 {
@@ -21,10 +23,26 @@ public class MeterTerminalStep : TutorialStep
     {
         [Tooltip("Punta pelable del cable que se conecta.")]
         public WireStripper wire;
+        [Tooltip("Otras puntas que también cuentan, por ejemplo el otro extremo del puente.")]
+        public WireStripper[] otherWires = new WireStripper[0];
         [Tooltip("Terminales donde va; cualquiera de ellas cuenta.")]
         public MeterTerminal[] terminals;
         [Tooltip("Aviso si la punta entra en otra terminal.")]
         public string wrongPlaceHint;
+
+        public IEnumerable<WireStripper> Wires
+        {
+            get
+            {
+                yield return wire;
+                if (otherWires == null) yield break;
+                foreach (var other in otherWires)
+                    if (other != null) yield return other;
+            }
+        }
+
+        public bool Uses(WireStripper tip) => tip == wire || (otherWires != null && System.Array.IndexOf(otherWires, tip) >= 0);
+        public bool Lists(MeterTerminal terminal) => terminal != null && System.Array.IndexOf(terminals, terminal) >= 0;
     }
 
     public Connection[] connections;
@@ -74,7 +92,7 @@ public class MeterTerminalStep : TutorialStep
 
         startDistances = new float[connections.Length];
         for (int i = 0; i < connections.Length; i++)
-            startDistances[i] = Mathf.Max(DistanceToTerminal(connections[i]), 0.05f);
+            startDistances[i] = Mathf.Clamp(DistanceToTerminal(connections[i]), 0.05f, 10f);
 
         WrongConnections = 0;
         seatedWire = null;
@@ -95,8 +113,8 @@ public class MeterTerminalStep : TutorialStep
         var pending = Pending();
         UpdateMarker(pending);
 
-        MeterTerminal seatedIn = pending != null ? PlacedIn(pending) : null;
-        var wire = seatedIn != null ? pending.wire : null;
+        WireStripper wire = null;
+        MeterTerminal seatedIn = pending != null ? PlacedIn(pending, out wire) : null;
         if (wire != seatedWire)
         {
             seatedWire = wire;
@@ -132,7 +150,7 @@ public class MeterTerminalStep : TutorialStep
 
     void OnWireInserted(MeterTerminal terminal, WireStripper wire)
     {
-        if (terminal.Accepts(wire)) return;
+        if (terminal.Accepts(wire) && !AlreadyFilled(terminal, wire)) return;
         WrongConnections++;
 
         var connection = Find(wire);
@@ -146,29 +164,79 @@ public class MeterTerminalStep : TutorialStep
     void OnWirePulledOut(MeterTerminal terminal, WireStripper wire)
     {
         // Pulling a wrong wire out is the fix, not a mistake.
-        var connection = Find(wire);
-        if (connection != null && System.Array.IndexOf(connection.terminals, terminal) >= 0)
-            lastPulledOutTime = Time.time;
+        foreach (var connection in connections)
+            if (connection.Uses(wire) && connection.Lists(terminal))
+                lastPulledOutTime = Time.time;
     }
 
-    /// <summary>Terminal donde está la punta y que cuenta para el paso, o null.</summary>
-    MeterTerminal PlacedIn(Connection connection)
+    /// <summary>
+    /// Los dos extremos del puente entran en el conector, pero solo uno va ahí: si la conexión de esa
+    /// terminal ya tiene otra de sus puntas, esta es una conexión equivocada.
+    /// </summary>
+    bool AlreadyFilled(MeterTerminal terminal, WireStripper wire)
     {
-        var terminal = MeterTerminal.Holding(connection.wire);
-        if (terminal == null) return null;
-        return !Strict || System.Array.IndexOf(connection.terminals, terminal) >= 0 ? terminal : null;
+        foreach (var connection in connections)
+        {
+            if (!connection.Uses(wire) || !connection.Lists(terminal)) continue;
+            foreach (var other in connection.Wires)
+                if (other != wire && connection.Lists(MeterTerminal.Holding(other))) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Terminal donde está una punta de la conexión y que cuenta para el paso, o null.</summary>
+    MeterTerminal PlacedIn(Connection connection, out WireStripper placed)
+    {
+        var terminal = ListedPlacement(connection, out placed);
+        if (terminal != null || Strict) return terminal;
+
+        // In evaluation any terminal counts, but a tip fills only one connection.
+        foreach (var candidate in connection.Wires)
+        {
+            terminal = MeterTerminal.Holding(candidate);
+            if (terminal != null && !ClaimedByOther(connection, candidate))
+            {
+                placed = candidate;
+                return terminal;
+            }
+        }
+        placed = null;
+        return null;
+    }
+
+    /// <summary>Primera punta de la conexión que está en una de sus terminales.</summary>
+    static MeterTerminal ListedPlacement(Connection connection, out WireStripper placed)
+    {
+        foreach (var candidate in connection.Wires)
+        {
+            var terminal = MeterTerminal.Holding(candidate);
+            if (connection.Lists(terminal))
+            {
+                placed = candidate;
+                return terminal;
+            }
+        }
+        placed = null;
+        return null;
+    }
+
+    bool ClaimedByOther(Connection connection, WireStripper wire)
+    {
+        foreach (var other in connections)
+            if (other != connection && ListedPlacement(other, out var placed) != null && placed == wire) return true;
+        return false;
     }
 
     bool IsDone(Connection connection)
     {
-        var terminal = PlacedIn(connection);
+        var terminal = PlacedIn(connection, out _);
         return terminal != null && terminal.State == MeterTerminal.TerminalState.Tightened;
     }
 
     float ConnectionProgress(int index)
     {
         var connection = connections[index];
-        var terminal = PlacedIn(connection);
+        var terminal = PlacedIn(connection, out _);
         if (terminal != null)
             return terminal.State == MeterTerminal.TerminalState.Tightened ? 1f : 0.5f + 0.45f * terminal.screw.Progress01;
 
@@ -176,10 +244,17 @@ public class MeterTerminalStep : TutorialStep
         return 0.4f * Mathf.Clamp01(1f - distance / startDistances[index]);
     }
 
+    /// <summary>Distancia de la punta libre más cercana a la terminal libre de la conexión.</summary>
     float DistanceToTerminal(Connection connection)
     {
         var target = FreeTerminal(connection);
-        return target != null ? Vector3.Distance(WireTip.For(connection.wire).End, target.transform.position) : 0f;
+        if (target == null) return 0f;
+
+        float distance = float.PositiveInfinity;
+        foreach (var candidate in connection.Wires)
+            if (MeterTerminal.Holding(candidate) == null)
+                distance = Mathf.Min(distance, Vector3.Distance(WireTip.For(candidate).End, target.transform.position));
+        return distance;
     }
 
     /// <summary>Primera terminal libre de la conexión (la primera, si todas están ocupadas).</summary>
@@ -190,17 +265,23 @@ public class MeterTerminalStep : TutorialStep
         return connection.terminals.Length > 0 ? connection.terminals[0] : null;
     }
 
+    /// <summary>La conexión con una punta metida sin apretar o, si no hay, la primera sin terminar.</summary>
     Connection Pending()
     {
+        Connection first = null;
         foreach (var connection in connections)
-            if (!IsDone(connection)) return connection;
-        return null;
+        {
+            if (IsDone(connection)) continue;
+            if (PlacedIn(connection, out _) != null) return connection;
+            if (first == null) first = connection;
+        }
+        return first;
     }
 
     Connection Find(WireStripper wire)
     {
         foreach (var connection in connections)
-            if (connection.wire == wire) return connection;
+            if (connection.Uses(wire)) return connection;
         return null;
     }
 
@@ -213,7 +294,7 @@ public class MeterTerminalStep : TutorialStep
             return;
         }
 
-        var terminal = PlacedIn(pending);
+        var terminal = PlacedIn(pending, out _);
         marker.target = terminal != null ? terminal.screw.head : FreeTerminal(pending).transform;
     }
 
