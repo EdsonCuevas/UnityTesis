@@ -10,6 +10,8 @@ Imagen de referencia: [`conexion_medidor_monofasico.jpeg`](conexion_medidor_mono
 
 ## Estado
 
+**Plan terminado (2026-09-28)**: el usuario lo dio por cerrado tras probar en el visor. Los ajustes que salgan después van como cambios sueltos.
+
 - [x] **Etapa 1**: terminal, destornillador y pasos 11–13 (acometida) — falta la prueba en el visor (tarea 7)
 - [x] **Etapa 2**: puente de neutro (pasos 15–16) — falta la prueba en el visor
 - [x] **Etapa 3**: cables de carga (pasos 17–20) — falta la prueba en el visor
@@ -105,7 +107,7 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - **Pendiente**: los audios de la tabla "Textos de narración pendientes". Cuando existan, asignarlos en `narration` de cada paso y en `LevelManager.voiceCues` (el texto del aviso debe ser idéntico).
 
 - **Ajuste tras probar (2026-09-28)**:
-  - **Se quitó el tirón de prueba**: al usuario le pareció inútil y tedioso. `21_tiron_de_prueba` salió de `LevelManager.steps`, se desactivó y se renombró a `x_21_tiron_de_prueba`. `TugTestStep`, `MeterTerminal.Nudges` y `WireGrab.Emphasized` siguen en el código sin usarse. El nivel queda con **21 pasos** y el último se renombró a `21_cerrar_registro`.
+  - **Se quitó el tirón de prueba**: al usuario le pareció inútil y tedioso. `21_tiron_de_prueba` salió de `LevelManager.steps`. Después, a pedido del usuario, se borraron el objeto, `TugTestStep.cs`, `MeterTerminal.Nudges`/`Seated`/`DressedLinks` y `WireGrab.Emphasized`; `MeterTerminal` y `WireGrab` quedaron como antes de la etapa 4. El nivel queda con **21 pasos** y el último se renombró a `21_cerrar_registro`.
   - **Audios**: el usuario generó los WAV con `generar_voces_medidor.ps1` (raíz del proyecto), pero no sonaban porque no estaban asignados. Ya se asignaron `narration` en los pasos 08 y 12–20 y 17 avisos nuevos en `LevelManager.voiceCues` (33 en total). `21_tiron_de_prueba.wav` y los 3 `aviso_tiron_*` no se usan.
 
 ---

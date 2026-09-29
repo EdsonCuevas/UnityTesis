@@ -21,8 +21,6 @@ public class MeterTerminal : MonoBehaviour
     public static event System.Action<MeterTerminal, WireStripper> WireInserted;
     /// <summary>Una punta sin apretar se salió al jalarla.</summary>
     public static event System.Action<MeterTerminal, WireStripper> WirePulledOut;
-    /// <summary>Desplazamiento temporal de eslabones acomodados (tirón de prueba). Lo aplican todas las terminales que los fijan.</summary>
-    public static readonly Dictionary<Transform, Vector3> Nudges = new Dictionary<Transform, Vector3>();
 
     [Tooltip("Nombre para los avisos, por ejemplo 'la terminal de línea'.")]
     public string label;
@@ -63,10 +61,6 @@ public class MeterTerminal : MonoBehaviour
     public bool HasCorrectWire => Wire != null && Accepts(Wire);
     public float LastUnstrippedTime { get; private set; } = float.NegativeInfinity;
     public float LastClosedTime { get; private set; } = float.NegativeInfinity;
-    /// <summary>Punta metida en la terminal, o null.</summary>
-    public WireTip Seated => seated;
-    /// <summary>Eslabones acomodados después de la punta (del 1 en adelante).</summary>
-    public int DressedLinks => dressTargets.Count;
 
     static WireStripper[] tips;
 
@@ -240,7 +234,6 @@ public class MeterTerminal : MonoBehaviour
         for (int i = 0; i < dressTargets.Count; i++)
         {
             Vector3 position = Vector3.Lerp(dressStarts[i], dressTargets[i], Mathf.SmoothStep(0f, 1f, t));
-            if (Nudges.Count > 0 && Nudges.TryGetValue(seated.Links[i + 1], out var nudge)) position += nudge;
             Vector3 previous = i == 0 ? transform.position : dressTargets[i - 1];
             Vector3 direction = dressTargets[i] - previous;
             seated.Pin(i + 1, position, direction.sqrMagnitude > 1e-8f ? Quaternion.LookRotation(direction) : Quaternion.identity);
