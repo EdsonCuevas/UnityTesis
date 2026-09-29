@@ -58,7 +58,7 @@ public class CutWireStep : TutorialStep
             outOfRange = Mathf.Max(outOfRange, cutter.LastOutOfRangeTime);
 
         string hint =
-            Time.time - outOfRange < 1f ? "Ahí no: corta sobre la marca, a unos 50 centímetros de donde sale el cable del medidor" :
+            Time.time - outOfRange < 1f ? "Ahí no: corta sobre la marca, a unos 40 centímetros de donde sale el cable del tubo" :
             held && Time.time - heldSince > 10f ? "Pon las quijadas de las pinzas sobre la marca del cable y aprieta el gatillo" :
             null;
 

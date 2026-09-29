@@ -23,10 +23,12 @@ public class WireCutter : MonoBehaviour
     public WireStripper tip;
     [Tooltip("Ducto por donde entró el cable; el largo que queda se mide desde su entrada.")]
     public ConduitPathGuide conduit;
-    [Tooltip("Cable libre que queda entre la entrada del ducto y la marca.")]
-    public float keepLength = 0.5f;
+    [Tooltip("Distancia del recorrido del ducto donde termina el tubo (su boca dentro de la base). El tramo anterior se suelta y queda como cable libre.")]
+    public float mouthDistance = 0.25f;
+    [Tooltip("Cable libre que queda entre la boca del tubo y la marca.")]
+    public float keepLength = 0.4f;
     [Tooltip("Qué tanto puede alejarse el corte de la marca, hacia cualquier lado.")]
-    public float tolerance = 0.15f;
+    public float tolerance = 0.1f;
     [Tooltip("Anillo que marca dónde cortar; se acomoda sobre el cable.")]
     public Transform mark;
     [Tooltip("Agarres del cable que usa el pelado, contados desde la punta nueva.")]
@@ -51,6 +53,7 @@ public class WireCutter : MonoBehaviour
     /// <summary>Ubica la marca. Se llama cuando el cable ya está dentro del ducto.</summary>
     public void Prepare()
     {
+        conduit.ReleaseBefore(mouthDistance);
         var wire = WireTip.For(tip);
         freeLinks = 0;
         while (freeLinks < wire.Links.Length && !conduit.IsInside(wire.Links[freeLinks])) freeLinks++;

@@ -44,6 +44,8 @@ public class MeterTerminal : MonoBehaviour
     [Tooltip("Puntos por donde se acomoda el cable al apretar el tornillo, en orden desde la boca.")]
     public Transform[] dressPoints;
     public float dressSeconds = 0.4f;
+    [Tooltip("Eslabones máximos entre la punta y el resto fijo del cable para acomodar todo el tramo hasta ahí.")]
+    public int maxDressLinks = 60;
 
     [Header("Eventos")]
     public UnityEvent OnInserted;
@@ -236,7 +238,11 @@ public class MeterTerminal : MonoBehaviour
         }
     }
 
-    /// <summary>Reparte los eslabones cercanos a la punta sobre la ruta de acomodo, uno por cada separación.</summary>
+    /// <summary>
+    /// Reparte los eslabones cercanos a la punta sobre la ruta de acomodo. Si el resto del cable está fijo
+    /// cerca (en el ducto o en otra terminal), todo el tramo libre se reparte hasta ese punto, para que no
+    /// quede un bucle colgando aunque sobre cable.
+    /// </summary>
     void BuildDress()
     {
         dressTargets.Clear();
@@ -248,8 +254,18 @@ public class MeterTerminal : MonoBehaviour
         foreach (var point in dressPoints)
             if (point != null) route.Add(point.position);
 
-        float along = seated.Spacing;
-        for (int i = 1; i < route.Count && dressTargets.Count < seated.Links.Length - 1; )
+        int count = seated.Links.Length - 1;
+        float spacing = seated.Spacing;
+        int fixedLink = FixedLink();
+        if (fixedLink > 0)
+        {
+            route.Add(seated.Links[fixedLink].position);
+            count = fixedLink - 1;
+            spacing = RouteLength(route) / fixedLink;
+        }
+
+        float along = spacing;
+        for (int i = 1; i < route.Count && dressTargets.Count < count; )
         {
             Vector3 from = route[i - 1];
             float length = Vector3.Distance(from, route[i]);
@@ -265,8 +281,25 @@ public class MeterTerminal : MonoBehaviour
             dressTargets.Add(target);
             dressStarts.Add(seated.Links[dressTargets.Count].position);
             route[i - 1] = target;
-            along = seated.Spacing;
+            along = spacing;
         }
+    }
+
+    /// <summary>Primer eslabón desde la punta que otro sistema mantiene fijo, o -1 si no hay uno cerca.</summary>
+    int FixedLink()
+    {
+        int last = Mathf.Min(maxDressLinks, seated.Links.Length - 1);
+        for (int i = 1; i <= last; i++)
+            // A held link is kinematic only because the hand locks it.
+            if (seated.Body(i).isKinematic && !seated.IsHeld(i)) return i;
+        return -1;
+    }
+
+    static float RouteLength(List<Vector3> route)
+    {
+        float length = 0f;
+        for (int i = 1; i < route.Count; i++) length += Vector3.Distance(route[i - 1], route[i]);
+        return length;
     }
 
     void OnDrawGizmos()
