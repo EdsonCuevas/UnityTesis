@@ -7,10 +7,17 @@ using UnityEngine;
 public class IgnoreLayerCollisions : MonoBehaviour
 {
     public LayerMask layers;
+    [Tooltip("Objetos cuyos colliders también se ignoran, sin importar su capa (por ejemplo, cables en la capa Default).")]
+    public Transform[] alsoIgnore = new Transform[0];
 
     void Start()
     {
         var own = GetComponentsInChildren<Collider>(true);
+        foreach (var root in alsoIgnore)
+            foreach (var other in root.GetComponentsInChildren<Collider>(true))
+                foreach (var mine in own)
+                    Physics.IgnoreCollision(mine, other, true);
+
         foreach (var other in FindObjectsByType<Collider>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
             if ((layers.value & (1 << other.gameObject.layer)) == 0) continue;

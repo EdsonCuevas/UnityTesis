@@ -61,9 +61,11 @@
     <Compile Include="Assets\Scripts\tutorial\ControllerHints.cs" />
     <Compile Include="Assets\Scripts\nivel_1\levelData.cs" />
     <Compile Include="Assets\Scripts\MenuController.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\ToolBelt.cs" />
     <Compile Include="Assets\Scripts\tutorial\PlugWireStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\TerminalScrew.cs" />
     <Compile Include="Assets\Scripts\tutorial\ContinueButtonStep.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\ToolHolster.cs" />
     <Compile Include="Assets\Scripts\CentroBotella.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialPanel.cs" />
     <Compile Include="Assets\Scripts\tutorial\ReachZoneStep.cs" />
@@ -104,6 +106,7 @@
     <Compile Include="Assets\Scripts\nivel_1\Medidor\Screwdriver.cs" />
     <Compile Include="Assets\Scripts\nivel_1\ResetIfFallen.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\WireGrab.cs" />
+    <Compile Include="Assets\Scripts\tutorial\HolsterStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireEndAligner.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
