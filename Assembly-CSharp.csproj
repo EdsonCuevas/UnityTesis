@@ -66,6 +66,7 @@
     <Compile Include="Assets\Scripts\tutorial\PlugWireStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\TerminalScrew.cs" />
     <Compile Include="Assets\Scripts\tutorial\ContinueButtonStep.cs" />
+    <Compile Include="Assets\Scripts\MenuVolumeSlider.cs" />
     <Compile Include="Assets\Scripts\nivel_1\ToolHolster.cs" />
     <Compile Include="Assets\Scripts\CentroBotella.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialPanel.cs" />
@@ -95,6 +96,7 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialContext.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\MeterTerminalStep.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\Scripts\MenuLevelEntry.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
     <Compile Include="Assets\Scripts\nivel_1\GuidePullStep.cs" />

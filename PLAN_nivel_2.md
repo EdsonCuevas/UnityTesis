@@ -6,7 +6,7 @@ Escena `Assets/Scenes/Nivel2.unity`, copia de `SampleScene` tal como estaba en d
 
 - [x] Escena, medidor cableado fijo, pastilla, tapa, colisiones, terminales y 8 pasos (validado en edición).
 - [ ] Prueba en el visor (nada de esto se ha jugado).
-- [x] Audios generados con `generar_voces_nivel2.ps1` y asignados en `narration`, `introNarration` y `voiceCues` (2026-11-02). `resultsNarration` sigue vacío.
+- [x] Audios generados con Azure Speech, voz `es-MX-Dalia:DragonHDLatestNeural`, con `generar_voces_nivel2.ps1` (lee la llave de `.env`; guardar el script en UTF-8 con BOM) y asignados en `narration`, `introNarration` y `voiceCues`. WAV 24 kHz, 16 bits, mono. `resultsNarration` sigue vacío. El nivel 1 y el tutorial siguen con Sabina.
 
 ## Pasos
 
@@ -24,10 +24,10 @@ Escena `Assets/Scenes/Nivel2.unity`, copia de `SampleScene` tal como estaba en d
 ## Lo que cambió respecto al nivel 1
 
 - **Medidor**: `Medidor_Cableado` son 6 mallas fijas generadas de las rutas de acomodo (`Assets/Scenes/Nivel2_Datos`). Apagados: `Fase`, `Neutro`, `Tierra`, `Puente_Neutro`, `Medidor_Terminales`, `Cortes_Cables`, `Cables_Guardados`, `Rutas_Carga`, `GEO_CintaAislante`, `GuiaJalacables` y los pasos del nivel 1.
-- **Cables de carga**: 22 eslabones + 2 anclas. Los 15 de la punta quedan libres (~26 cm); el resto va fijo dentro del tubo desde y 1.275. Esperan quietos dentro de la caja (`WireGrab.startDormant`) hasta su paso de pelar; `WireGrab.stayFixed` los mantiene fijos al despertar.
+- **Cables de carga**: la fase tiene 8 eslabones libres (~14 cm) y el neutro 10 (~17 cm), más 7 fijos y 2 anclas cada uno; el tramo fijo va dentro del tubo desde y 1.275. Antes eran 15 libres (~26 cm) y sobraba cable. Esperan quietos dentro de la caja (`WireGrab.startDormant`) hasta su paso de pelar; `WireGrab.stayFixed` los mantiene fijos al despertar.
 - **Pastilla**: raíz nueva `Pastilla` con el pivote en el centro de la malla; `MLD_TermoMagnetico` se desempaquetó de su prefab. Su asiento está 7.6 cm más adentro que su posición original, que quedaba fuera de la caja. Empieza en el piso, en (8.05, −0.16, −0.8).
 - **Tapa**: `Tapa_Caja` son 4 cubos con el material de la caja y una ranura para la pastilla. No hay modelo; si se hace uno, se cambia aquí.
-- **Colisiones**: `Caja_Colisiones` (caja con hueco arriba y cara del murete).
+- **Colisiones**: `Caja_Colisiones`. Los cables solo chocan con `Fondo` y `Abajo`; las cajas de `Sin_Cables` (paredes laterales, techo y cara del murete) los ignoran con `IgnoreLayerCollisions`, pero siguen deteniendo la tapa y la pastilla.
 - **Código**: `SeatedPart`, `SeatedPartStep` (`Assets/Scripts/nivel_2/`).
 
 ## Decisiones supuestas, por confirmar
@@ -38,7 +38,8 @@ Escena `Assets/Scenes/Nivel2.unity`, copia de `SampleScene` tal como estaba en d
 ## Pendiente de probar en el visor
 
 - Tomar la pastilla del piso (¿hay que agacharse demasiado?) y soltarla en su asiento.
-- Que los cables no tiemblen al despertar dentro de la caja, y que el acomodo de 15 eslabones en ~12 cm se vea bien.
+- Que los cables no tiemblen al despertar dentro de la caja, y cómo se ve el acomodo con los cables más cortos.
+- Que la punta salga lo suficiente para pelarla (la fase unos 6.6 cm y el neutro unos 9.6 cm fuera de la caja); si queda justo, subir 1 o 2 eslabones. Que no se note el cable al atravesar las paredes.
 - Alcanzar `GEO_Tuerca (1)` con el destornillador, justo arriba de la pastilla.
 - Dirección de las bocas (entran hacia abajo) y lugar del panel `Panel_Caja`.
 - Que quepan los 3 botones en el panel de resultados del nivel 1.

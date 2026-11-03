@@ -103,9 +103,9 @@ public class LevelManager : GuidedFlowManager
         else panel.SetButtons(new TutorialPanel.ButtonSpec("Siguiente nivel", () => LoadScene(nextSceneName)), retry, menu);
     }
 
-    static string ModeLabel(Mode mode) => mode == Mode.Practica ? "Práctica" : "Evaluación";
+    public static string ModeLabel(Mode mode) => mode == Mode.Practica ? "Práctica" : "Evaluación";
 
-    static string FormatTime(float seconds)
+    public static string FormatTime(float seconds)
     {
         int total = Mathf.RoundToInt(seconds);
         return $"{total / 60:00}:{total % 60:00}";

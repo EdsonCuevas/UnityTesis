@@ -1,11 +1,20 @@
-# Genera la narración del nivel 2 (caja de la pastilla) y sus avisos con la voz de Sabina.
-# Mismo formato que los audios que ya hay: WAV 22050 Hz, 16 bits, mono, velocidad por defecto.
-# Uso (desde la raíz del proyecto): powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1
-Add-Type -AssemblyName System.Speech
+﻿# Genera la narración del nivel 2 (caja de la pastilla) y sus avisos con Azure Speech.
+# La llave y la región se leen de .env (DEMO_AZURE_SPEECH_KEY y DEMO_AZURE_SPEECH_REGION).
+# Este archivo debe guardarse en UTF-8 con BOM: sin él, PowerShell 5.1 lee mal los acentos.
+# Uso (desde la raíz del proyecto):
+#   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1
+#   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1 -Muestras es-MX-DaliaNeural,es-MX-JorgeNeural
+# Con -Muestras solo crea un WAV por voz en Muestras_Voces, sin tocar los audios del juego.
+param(
+    [string]$Voz = 'es-MX-Dalia:DragonHDLatestNeural',
+    [string[]]$Muestras
+)
 
+$ErrorActionPreference = 'Stop'
 $raiz = $PSScriptRoot
 $carpetaPasos = Join-Path $raiz 'Assets\Audio\Nivel2'
 $carpetaAvisos = Join-Path $carpetaPasos 'Avisos'
+$carpetaMuestras = Join-Path $raiz 'Muestras_Voces'
 
 $pasos = [ordered]@{
     '00_intro'                = 'El medidor ya está cableado. Ahora conecta los cables de carga en la caja de la pastilla, detrás del murete. Elige cómo quieres hacerlo.'
@@ -21,37 +30,49 @@ $pasos = [ordered]@{
 
 # El texto debe ser idéntico al del aviso en el juego, porque la voz se busca por ese texto.
 $avisos = [ordered]@{
-    'aviso_acercar_pastilla' = 'Acerca la pastilla al centro de la caja antes de soltarla'
-    'aviso_acercar_tapa'     = 'Acerca la tapa al frente de la caja antes de soltarla'
-    'aviso_lugar_fase_caja'  = 'Ese no es su lugar: la fase va en el bloque de la pastilla'
+    'aviso_acercar_pastilla'  = 'Acerca la pastilla al centro de la caja antes de soltarla'
+    'aviso_acercar_tapa'      = 'Acerca la tapa al frente de la caja antes de soltarla'
+    'aviso_lugar_fase_caja'   = 'Ese no es su lugar: la fase va en el bloque de la pastilla'
     'aviso_lugar_neutro_caja' = 'Ese no es su lugar: el neutro va en la barra de neutros'
 }
 
-$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
-try {
-    $synth.SelectVoice('Microsoft Sabina Desktop')
-} catch {
-    Write-Error "No se encontró la voz 'Microsoft Sabina Desktop'. Voces instaladas:"
-    $synth.GetInstalledVoices() | ForEach-Object { Write-Host ' -' $_.VoiceInfo.Name }
-    exit 1
+$entorno = @{}
+foreach ($linea in Get-Content (Join-Path $raiz '.env')) {
+    if ($linea -match '^\s*(?:export\s+)?([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$') { $entorno[$Matches[1]] = $Matches[2].Trim('"', "'") }
 }
+$llave = $entorno['DEMO_AZURE_SPEECH_KEY']
+$region = $entorno['DEMO_AZURE_SPEECH_REGION']
+if (-not $llave -or -not $region) { throw 'Faltan DEMO_AZURE_SPEECH_KEY o DEMO_AZURE_SPEECH_REGION en .env' }
 
-$formato = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(
-    22050,
-    [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen,
-    [System.Speech.AudioFormat.AudioChannel]::Mono)
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+function Sintetizar($voz, $texto, $ruta) {
+    $seguro = [System.Security.SecurityElement]::Escape($texto)
+    $ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='es-MX'><voice name='$voz'>$seguro</voice></speak>"
+    Invoke-WebRequest -UseBasicParsing -Method Post -Uri "https://$region.tts.speech.microsoft.com/cognitiveservices/v1" -Headers @{
+        'Ocp-Apim-Subscription-Key' = $llave
+        'X-Microsoft-OutputFormat'  = 'riff-24khz-16bit-mono-pcm'
+        'User-Agent'                = 'UnityTesis'
+    } -ContentType 'application/ssml+xml; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes($ssml)) -OutFile $ruta
+    Write-Host "Listo: $ruta"
+}
 
 function Generar($carpeta, $textos) {
     New-Item -ItemType Directory -Force $carpeta | Out-Null
     foreach ($nombre in $textos.Keys) {
-        $ruta = Join-Path $carpeta ($nombre + '.wav')
-        $synth.SetOutputToWaveFile($ruta, $formato)
-        $synth.Speak($textos[$nombre])
-        $synth.SetOutputToNull()
-        Write-Host "Listo: $ruta"
+        Sintetizar $Voz $textos[$nombre] (Join-Path $carpeta ($nombre + '.wav'))
     }
+}
+
+if ($Muestras) {
+    New-Item -ItemType Directory -Force $carpetaMuestras | Out-Null
+    # Con -File, la lista llega como un solo texto separado por comas.
+    foreach ($voz in ($Muestras -split ',')) {
+        $archivo = ($voz -replace '[^A-Za-z0-9-]', '_') + '.wav'
+        Sintetizar $voz ($pasos['03_montar_pastilla'] + ' ' + $pasos['05_conectar_fase_caja']) (Join-Path $carpetaMuestras $archivo)
+    }
+    exit 0
 }
 
 Generar $carpetaPasos $pasos
 Generar $carpetaAvisos $avisos
-$synth.Dispose()

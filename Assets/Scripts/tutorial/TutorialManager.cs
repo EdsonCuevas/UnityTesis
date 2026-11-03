@@ -10,6 +10,7 @@ public class TutorialManager : GuidedFlowManager
     public AudioClip finalNarration;
     public AudioClip tutorialCompleteClip;
     public string nextSceneName = "SampleScene";
+    public string menuSceneName = "UIMenu";
 
     [Header("Saltar")]
     [Tooltip("Segundos manteniendo B para saltar el tutorial.")]
@@ -55,6 +56,7 @@ public class TutorialManager : GuidedFlowManager
 
         panel.SetButtons(
             new TutorialPanel.ButtonSpec("Repetir tutorial", () => LoadScene(SceneManager.GetActiveScene().name)),
-            new TutorialPanel.ButtonSpec("Ir al nivel", () => LoadScene(nextSceneName)));
+            new TutorialPanel.ButtonSpec("Ir al nivel", () => LoadScene(nextSceneName)),
+            new TutorialPanel.ButtonSpec("Menú principal", () => LoadScene(menuSceneName)));
     }
 }
