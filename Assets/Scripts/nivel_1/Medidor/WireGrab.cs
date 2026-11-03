@@ -24,6 +24,10 @@ public class WireGrab : MonoBehaviour
     public Transform[] parkRoute = new Transform[0];
     public float parkSeconds = 0.5f;
 
+    [Header("En espera")]
+    [Tooltip("El cable espera fijo y sin poder agarrarse hasta el primer paso que lo use. Sus eslabones deben estar cinemáticos en la escena.")]
+    public bool startDormant;
+
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
     /// <summary>El cable pulsa porque es el del paso.</summary>
@@ -31,6 +35,7 @@ public class WireGrab : MonoBehaviour
     public bool Locked { get; private set; }
     /// <summary>Una mano está sobre el cable o lo sostiene.</summary>
     public bool Hovered { get; private set; }
+    public bool Dormant { get; private set; }
 
     readonly List<GameObject> grabObjects = new List<GameObject>();
     readonly List<IInteractableView> views = new List<IInteractableView>();
@@ -62,6 +67,12 @@ public class WireGrab : MonoBehaviour
             if (go != gameObject && go.activeSelf && go.GetComponent<Rigidbody>() == null && !grabObjects.Contains(go))
                 grabObjects.Add(go);
         }
+
+        if (startDormant)
+        {
+            Dormant = true;
+            SetLocked(true);
+        }
     }
 
     void OnEnable() => All.Add(this);
@@ -85,6 +96,7 @@ public class WireGrab : MonoBehaviour
         foreach (var wire in All)
         {
             wire.Highlighted = highlighted.Contains(wire);
+            if (grabbable.Contains(wire)) wire.Wake();
             wire.SetLocked(!grabbable.Contains(wire));
             if (grabbable.Contains(wire)) wire.Unpark();
             else wire.Park();
@@ -97,8 +109,19 @@ public class WireGrab : MonoBehaviour
         foreach (var wire in All)
         {
             wire.Highlighted = false;
-            wire.SetLocked(false);
+            wire.SetLocked(wire.Dormant);
         }
+    }
+
+    void Wake()
+    {
+        if (!Dormant) return;
+        Dormant = false;
+
+        var wire = GetComponent<WireController>();
+        foreach (var segment in wire.segments) segment.GetComponent<Rigidbody>().isKinematic = false;
+        wire.starAnchorTemp.GetComponent<Rigidbody>().isKinematic = false;
+        wire.endAnchorTemp.GetComponent<Rigidbody>().isKinematic = false;
     }
 
     static HashSet<WireGrab> Owners(IEnumerable<WireStripper> tips)

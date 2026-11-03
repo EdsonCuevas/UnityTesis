@@ -409,7 +409,7 @@ public class ConduitPathGuide : MonoBehaviour
         {
             feed = Mathf.Min(feed, pushStep);
             float outsideAfter = (_chain.Length - LinksInsideFor(_progress + feed)) * _spacing;
-            float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
+            float needed = StartEndIsFree() ? 0f : Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
             if (outsideAfter < needed)
             {
                 Status = FeedStatus.OutOfSlack;

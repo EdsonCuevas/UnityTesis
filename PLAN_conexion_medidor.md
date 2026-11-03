@@ -116,6 +116,14 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - **Orden de carga**: ahora es pelar y conectar por cable (`17_pelar_fase_carga`, `18_conectar_fase_carga`, `19_pelar_neutro_carga`, `20_conectar_neutro_carga`); `Carga_Neutro` aparece hasta el 19.
   - **Paso de organizar, quitado el mismo día**: se borraron el objeto, `OrganizeWiresStep`, la holgura y el peinado de `MeterTerminal`, su aviso en `voiceCues` y sus textos en `generar_voces_medidor.ps1`. El cable queda en su ruta final al apretar. `21_organizar_cables.wav` y `aviso_peinar_cable.wav` no se usan. El último paso volvió a ser `21_cerrar_registro`.
 
+- **Meter los cables de carga (2026-11-02)**: el usuario no quería que aparecieran de la nada y eligió meterlos desde el frente, uno por uno. El nivel queda con **23 pasos**: `17_meter_fase_carga`, `18_pelar_fase_carga`, `19_conectar_fase_carga`, `20_meter_neutro_carga`, `21_pelar_neutro_carga`, `22_conectar_neutro_carga`, `23_cerrar_registro`.
+  - **Cables en el piso**: `Carga_Fase` (z 1.35) y `Carga_Neutro` (z 1.43) están activos desde el inicio, en línea recta sobre la banqueta (x 7.40–8.42, y −0.086). `WireGrab.startDormant` los deja cinemáticos y sin agarre hasta que `WireGrab.Only` los pide por primera vez.
+  - **Ruta**: `Rutas_Carga/Ruta_Fase` y `Ruta_Neutro` tienen un `ConduitPathGuide` con `handFeed` y `entryRadius` 0.07. Sus puntos siguen la cola anterior: del frente del hueco, por el murete, hasta y ≈ 1.01 atrás. Entra el `EndAnchor`; la punta pelable queda en la base. Todos los eslabones se pueden agarrar hasta que entran al ducto.
+  - **Código**: `LoadWireFeedStep` (nuevo, hereda de `ConduitStep`), `ConduitStep.misalignedHint` y, en `ConduitPathGuide.ApplyFeed`, un extremo suelto ya no frena el empuje porque se arrastra.
+  - **Ruta por el tubo (corrección tras probar)**: los cables atravesaban el murete por detrás. Ahora la ruta sigue `GEO_TubosTrans`: centro en y 1.339, codo de radio 0.059 y bajada en z −0.1035, hasta y 1.22 dentro de `CajaTermomagnetica`. Son unos 42 cm. Se quitaron de `segments` y se apagaron los eslabones que sobraban; `EndAnchor` se unió al nuevo último eslabón. Esto reemplaza la cola de ~1 m y la distancia de 75 cm mencionadas antes.
+  - **Audios**: generados por el usuario y asignados (2 pasos nuevos en `narration`, 5 avisos en `voiceCues`, 38 en total; los 2 pelados conservan su archivo).
+  - **Pendiente**: probar en el visor qué tan cómodo es entrar al hueco y empujar ~42 cm.
+
 ---
 
 ## Textos de narración pendientes (etapa 4)

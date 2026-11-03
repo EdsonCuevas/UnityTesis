@@ -3,8 +3,9 @@ using UnityEngine;
 public class ConduitStep : TutorialStep
 {
     public ConduitPathGuide conduit;
+    public string misalignedHint = "Apunta la punta del cable hacia la entrada del tubo";
 
-    float nextHintTime;
+    protected float nextHintTime;
 
     public override float Progress => conduit.Progress01;
     public override bool IsComplete => conduit.IsComplete;
@@ -21,7 +22,7 @@ public class ConduitStep : TutorialStep
             ? "El cable se resbaló: empuja más despacio en las curvas"
             : conduit.Status switch
             {
-                ConduitPathGuide.FeedStatus.TipMisaligned => "Apunta la punta del cable hacia la entrada del tubo",
+                ConduitPathGuide.FeedStatus.TipMisaligned => misalignedHint,
                 ConduitPathGuide.FeedStatus.NeedCloserGrip => "Sujeta el cable más cerca de la entrada para empujarlo",
                 ConduitPathGuide.FeedStatus.OutOfSlack => "Ya no alcanza el cable: acerca el resto al tubo",
                 _ => null
