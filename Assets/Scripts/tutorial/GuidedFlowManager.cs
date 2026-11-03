@@ -60,6 +60,9 @@ public abstract class GuidedFlowManager : MonoBehaviour
     /// <summary>Panel con descripción, línea guía, indicadores, marcadores y narración.</summary>
     protected virtual bool ShowGuides => true;
 
+    /// <summary>Flechas sobre los botones de los controles; solo aplica si ShowGuides está activo.</summary>
+    protected virtual bool ShowControllerHints => true;
+
     Coroutine flow;
     bool loading;
 
@@ -145,7 +148,8 @@ public abstract class GuidedFlowManager : MonoBehaviour
             return;
         }
 
-        controllerHints.Show(step.highlightParts);
+        if (ShowControllerHints) controllerHints.Show(step.highlightParts);
+        else controllerHints.HideAll();
         if (step.worldTarget != null) guideLine.Show(step.worldTarget, step.pathPoints);
         else guideLine.Hide();
         PlayNarration(step.narration);

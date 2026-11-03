@@ -29,6 +29,9 @@ public class LevelManager : GuidedFlowManager
 
     protected override bool ShowGuides => CurrentMode == Mode.Practica;
 
+    // Estorban al manejar los cables; los controles ya se aprendieron en el tutorial.
+    protected override bool ShowControllerHints => false;
+
     readonly List<LevelStepResult> stepResults = new List<LevelStepResult>();
     float startedAt;
 
