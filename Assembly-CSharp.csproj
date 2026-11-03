@@ -110,10 +110,12 @@
     <Compile Include="Assets\Scripts\tutorial\HolsterStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireEndAligner.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireBuilder.cs" />
+    <Compile Include="Assets\Scripts\nivel_2\SeatedPart.cs" />
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\WireTip.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
     <Compile Include="Assets\Scripts\nivel_1\RegistroLid.cs" />
+    <Compile Include="Assets\Scripts\nivel_2\SeatedPartStep.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

@@ -27,6 +27,8 @@ public class WireGrab : MonoBehaviour
     [Header("En espera")]
     [Tooltip("El cable espera fijo y sin poder agarrarse hasta el primer paso que lo use. Sus eslabones deben estar cinemáticos en la escena.")]
     public bool startDormant;
+    [Tooltip("Eslabones que siguen fijos al despertar el cable, por ejemplo los que quedan dentro del tubo.")]
+    public Rigidbody[] stayFixed = new Rigidbody[0];
 
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -119,9 +121,15 @@ public class WireGrab : MonoBehaviour
         Dormant = false;
 
         var wire = GetComponent<WireController>();
-        foreach (var segment in wire.segments) segment.GetComponent<Rigidbody>().isKinematic = false;
-        wire.starAnchorTemp.GetComponent<Rigidbody>().isKinematic = false;
-        wire.endAnchorTemp.GetComponent<Rigidbody>().isKinematic = false;
+        foreach (var segment in wire.segments) Release(segment);
+        Release(wire.starAnchorTemp);
+        Release(wire.endAnchorTemp);
+    }
+
+    void Release(Transform link)
+    {
+        var body = link.GetComponent<Rigidbody>();
+        if (System.Array.IndexOf(stayFixed, body) < 0) body.isKinematic = false;
     }
 
     static HashSet<WireGrab> Owners(IEnumerable<WireStripper> tips)

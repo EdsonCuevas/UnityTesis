@@ -75278,6 +75278,7 @@ MonoBehaviour:
   - {fileID: 2001743339}
   parkSeconds: 0.5
   startDormant: 0
+  stayFixed: []
 --- !u!1 &217185034
 GameObject:
   m_ObjectHideFlags: 0
@@ -86262,6 +86263,7 @@ MonoBehaviour:
   - {fileID: 952695492}
   parkSeconds: 0.5
   startDormant: 0
+  stayFixed: []
 --- !u!1 &246695330
 GameObject:
   m_ObjectHideFlags: 0
@@ -124152,6 +124154,7 @@ MonoBehaviour:
   parkRoute: []
   parkSeconds: 0.5
   startDormant: 1
+  stayFixed: []
 --- !u!1 &340254467
 GameObject:
   m_ObjectHideFlags: 0
@@ -243223,6 +243226,7 @@ MonoBehaviour:
   introNarration: {fileID: 8300000, guid: 5f0be47bac9d28c40b7ec189436a6f2a, type: 3}
   resultsNarration: {fileID: 8300000, guid: d1261f9a781a77340a489ace46c32e3d, type: 3}
   menuSceneName: UIMenu
+  nextSceneName: Nivel2
 --- !u!1 &677536541
 GameObject:
   m_ObjectHideFlags: 0
@@ -516874,6 +516878,7 @@ MonoBehaviour:
   parkRoute: []
   parkSeconds: 0.5
   startDormant: 1
+  stayFixed: []
 --- !u!1 &1502270972
 GameObject:
   m_ObjectHideFlags: 0
@@ -746080,6 +746085,7 @@ MonoBehaviour:
   parkRoute: []
   parkSeconds: 0.5
   startDormant: 0
+  stayFixed: []
 --- !u!4 &5010419561890617245 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2677971085623752341, guid: 08fb3f1be5fe9cc43b52ffc5c9c5dcb2, type: 3}
@@ -747634,6 +747640,7 @@ MonoBehaviour:
   - {fileID: 876849319}
   parkSeconds: 0.5
   startDormant: 0
+  stayFixed: []
 --- !u!1001 &6876096980078317345
 PrefabInstance:
   m_ObjectHideFlags: 0

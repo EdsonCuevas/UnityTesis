@@ -22,6 +22,8 @@ public class LevelManager : GuidedFlowManager
     public AudioClip introNarration;
     public AudioClip resultsNarration;
     public string menuSceneName = "UIMenu";
+    [Tooltip("Escena del siguiente nivel. Vacío = es el último y no se ofrece el botón.")]
+    public string nextSceneName = "Nivel2";
 
     public Mode CurrentMode { get; private set; }
 
@@ -95,9 +97,10 @@ public class LevelManager : GuidedFlowManager
         if (levelCompleteClip != null) sfxSource.PlayOneShot(levelCompleteClip);
         PlayNarration(resultsNarration);
 
-        panel.SetButtons(
-            new TutorialPanel.ButtonSpec("Reintentar", () => LoadScene(SceneManager.GetActiveScene().name)),
-            new TutorialPanel.ButtonSpec("Menú principal", () => LoadScene(menuSceneName)));
+        var retry = new TutorialPanel.ButtonSpec("Reintentar", () => LoadScene(SceneManager.GetActiveScene().name));
+        var menu = new TutorialPanel.ButtonSpec("Menú principal", () => LoadScene(menuSceneName));
+        if (string.IsNullOrEmpty(nextSceneName)) panel.SetButtons(retry, menu);
+        else panel.SetButtons(new TutorialPanel.ButtonSpec("Siguiente nivel", () => LoadScene(nextSceneName)), retry, menu);
     }
 
     static string ModeLabel(Mode mode) => mode == Mode.Practica ? "Práctica" : "Evaluación";
