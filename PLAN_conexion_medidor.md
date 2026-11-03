@@ -110,6 +110,12 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - **Se quitó el tirón de prueba**: al usuario le pareció inútil y tedioso. `21_tiron_de_prueba` salió de `LevelManager.steps`. Después, a pedido del usuario, se borraron el objeto, `TugTestStep.cs`, `MeterTerminal.Nudges`/`Seated`/`DressedLinks` y `WireGrab.Emphasized`; `MeterTerminal` y `WireGrab` quedaron como antes de la etapa 4. El nivel queda con **21 pasos** y el último se renombró a `21_cerrar_registro`.
   - **Audios**: el usuario generó los WAV con `generar_voces_medidor.ps1` (raíz del proyecto), pero no sonaban porque no estaban asignados. Ya se asignaron `narration` en los pasos 08 y 12–20 y 17 avisos nuevos en `LevelManager.voiceCues` (33 en total). `21_tiron_de_prueba.wav` y los 3 `aviso_tiron_*` no se usan.
 
+- **Cables organizados (2026-11-02)**: el usuario quería el interior limpio como en una foto de referencia y eligió rutas limpias + cables guardados + paso de organizar. Tras probarlo en el visor, el paso le pareció muy incómodo y se quitó; queda solo la limpieza automática y el nivel sigue con **21 pasos**.
+  - **Rutas**: se recolocaron los `Acomodo_N`: fase a la izquierda (x 7.56), neutro y tierra en columna (x 7.5225 y 7.5105), puente y neutro de carga a la derecha. `MeterTerminal.BuildDress` redondea las esquinas (`Smooth`). Queda un solo cruce: la fase de carga pasa por delante de la de acometida (z 0.2385 contra 0.2255). La salida de carga sigue en el hueco central.
+  - **Cables guardados**: `WireGrab.parkTip`/`parkRoute`. `WireGrab.Only` lleva a su ruta de `Cables_Guardados` (arcos pegados a la pared) a `Fase`, `Neutro` y `Tierra` mientras no les toca y no están conectados; los libera en su paso.
+  - **Orden de carga**: ahora es pelar y conectar por cable (`17_pelar_fase_carga`, `18_conectar_fase_carga`, `19_pelar_neutro_carga`, `20_conectar_neutro_carga`); `Carga_Neutro` aparece hasta el 19.
+  - **Paso de organizar, quitado el mismo día**: se borraron el objeto, `OrganizeWiresStep`, la holgura y el peinado de `MeterTerminal`, su aviso en `voiceCues` y sus textos en `generar_voces_medidor.ps1`. El cable queda en su ruta final al apretar. `21_organizar_cables.wav` y `aviso_peinar_cable.wav` no se usan. El último paso volvió a ser `21_cerrar_registro`.
+
 ---
 
 ## Textos de narración pendientes (etapa 4)
