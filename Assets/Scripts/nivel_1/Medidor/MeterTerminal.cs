@@ -263,8 +263,9 @@ public class MeterTerminal : MonoBehaviour
         {
             route.Add(seated.Links[fixedLink].position);
             count = fixedLink - 1;
-            spacing = RouteLength(route) / fixedLink;
         }
+        Smooth(route);
+        if (fixedLink > 0) spacing = RouteLength(route) / fixedLink;
 
         float along = spacing;
         for (int i = 1; i < route.Count && dressTargets.Count < count; )
@@ -284,6 +285,23 @@ public class MeterTerminal : MonoBehaviour
             dressStarts.Add(seated.Links[dressTargets.Count].position);
             route[i - 1] = target;
             along = spacing;
+        }
+    }
+
+    // Rounds the route's corners so the wire bends instead of kinking; its ends stay in place.
+    static void Smooth(List<Vector3> route)
+    {
+        for (int pass = 0; pass < 2; pass++)
+        {
+            var smooth = new List<Vector3> { route[0] };
+            for (int i = 1; i < route.Count; i++)
+            {
+                if (i > 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.25f));
+                if (i < route.Count - 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.75f));
+            }
+            smooth.Add(route[route.Count - 1]);
+            route.Clear();
+            route.AddRange(smooth);
         }
     }
 

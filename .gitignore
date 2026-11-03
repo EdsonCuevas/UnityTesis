@@ -7,3 +7,4 @@ Logs/
 UserSettings/
 .vscode/
 .utmp/
+.env
