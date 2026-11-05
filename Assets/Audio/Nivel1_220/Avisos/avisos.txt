@@ -1,0 +1,8 @@
+aviso_encintar_cuatro|Engancha los cuatro cables a la guía antes de encintar
+aviso_atorada_cuatro|La guía está atorada: ve al murete y empuja los cuatro cables hacia el medidor
+aviso_jalar_cuatro|Engancha los cuatro cables a la guía antes de jalar
+aviso_sostener_negro|Sostén el cable negro con la otra mano para poder jalar
+aviso_lugar_faseA|Ese no es su lugar: la fase A va en la terminal de línea, arriba a la izquierda
+aviso_lugar_faseB|Ese no es su lugar: la fase B va en la terminal de línea, arriba a la derecha
+aviso_lugar_faseB_carga|Ese no es su lugar: la fase B de carga va en la terminal de abajo a la derecha
+aviso_lugar_neutro_carga|Ese no es su lugar: el neutro de carga va en la entrada derecha del conector de neutro

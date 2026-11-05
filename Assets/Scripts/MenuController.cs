@@ -15,6 +15,9 @@ public class MenuController : MonoBehaviour
         StartCoroutine(FadeAndLoad(sceneName));
     }
 
+    /// <summary>Carga un nivel en el voltaje elegido en el menú (127 V o 220 V).</summary>
+    public void LoadLevel(string sceneName) => LoadScene(VoltageMode.SceneFor(sceneName));
+
     public void StartBtn()
     {
         SceneManager.LoadScene("TutorialScene");

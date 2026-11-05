@@ -7,9 +7,12 @@ public class MenuLevelEntry : MonoBehaviour
     public string levelId;
     public TMP_Text detailText;
 
-    void Start()
+    void Start() => Refresh();
+
+    /// <summary>Vuelve a leer los tiempos; el id depende del voltaje elegido en el menú.</summary>
+    public void Refresh()
     {
-        var record = LevelResultsStore.Load(levelId);
+        var record = LevelResultsStore.Load(VoltageMode.LevelIdFor(levelId));
         if (record.intentos.Count == 0)
         {
             detailText.text = "Sin intentos";
