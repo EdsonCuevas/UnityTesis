@@ -4,10 +4,13 @@
 # Uso (desde la raíz del proyecto):
 #   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1
 #   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1 -Muestras es-MX-DaliaNeural,es-MX-JorgeNeural
+#   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1 -Solo 06_pelar_neutro_caja,07_conectar_neutro_caja
 # Con -Muestras solo crea un WAV por voz en Muestras_Voces, sin tocar los audios del juego.
+# Con -Solo solo regenera los pasos o avisos nombrados.
 param(
     [string]$Voz = 'es-MX-Dalia:DragonHDLatestNeural',
-    [string[]]$Muestras
+    [string[]]$Muestras,
+    [string[]]$Solo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,8 +26,8 @@ $pasos = [ordered]@{
     '03_montar_pastilla'      = 'Toma la pastilla termomagnética de la mesa. Acércala al centro de la caja y suéltala para que encaje.'
     '04_pelar_fase_caja'      = 'El cable rojo viene del medidor. Sácalo de la caja, coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
     '05_conectar_fase_caja'   = 'Mete la punta pelada del cable rojo por arriba del bloque que alimenta la pastilla. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
-    '06_pelar_neutro_caja'    = 'El cable negro también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
-    '07_conectar_neutro_caja' = 'Mete la punta pelada del cable negro por arriba de la barra de neutros, a la izquierda de la caja. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
+    '06_pelar_neutro_caja'    = 'El cable blanco también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
+    '07_conectar_neutro_caja' = 'Mete la punta pelada del cable blanco por arriba de la barra de neutros, a la izquierda de la caja. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
     '08_cerrar_caja'          = 'Toma la tapa, acércala al frente de la caja y suéltala para que se acomode.'
 }
 
@@ -60,6 +63,7 @@ function Sintetizar($voz, $texto, $ruta) {
 function Generar($carpeta, $textos) {
     New-Item -ItemType Directory -Force $carpeta | Out-Null
     foreach ($nombre in $textos.Keys) {
+        if ($Solo -and ($Solo -split ',') -notcontains $nombre) { continue }
         Sintetizar $Voz $textos[$nombre] (Join-Path $carpeta ($nombre + '.wav'))
     }
 }
