@@ -492162,9 +492162,10 @@ MonoBehaviour:
   insertSpeed: 1.5
   insertGain: 1.5
   insertBendResistance: 0.2
-  pullSpeed: 0.6
-  bendResistance: 0.5
-  slipTolerance: 1.4
+  pullSpeed: 1
+  pullGain: 1.75
+  bendResistance: 0.25
+  slipTolerance: 1.8
   jamDistances:
   - 2.6
   - 4.2
