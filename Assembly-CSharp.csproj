@@ -98,6 +98,7 @@
     <Compile Include="Assets\Scripts\MenuVoltageSelector.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\MeterTerminalStep.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\HeavyLidTransformer.cs" />
     <Compile Include="Assets\Scripts\MenuLevelEntry.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
