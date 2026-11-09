@@ -80,6 +80,10 @@ public class MeterTerminal : MonoBehaviour
     public Transform[] dressPoints;
     [Tooltip("Rutas propias de algunos cables; los demás usan la ruta por defecto.")]
     public WireRoute[] routes = new WireRoute[0];
+    [Tooltip("Radio de las curvas del cable acomodado.")]
+    public float bendRadius = 0.012f;
+    [Tooltip("Tramo recto con que el cable sale de la boca antes de doblar.")]
+    public float leadOut = 0.008f;
     public float dressSeconds = 0.4f;
     [Tooltip("Eslabones máximos entre la punta y el resto fijo del cable para acomodar todo el tramo hasta ahí.")]
     public int maxDressLinks = 60;
@@ -366,7 +370,7 @@ public class MeterTerminal : MonoBehaviour
             path.Add(tip.Links[fixedLink].position);
             count = fixedLink - 1;
         }
-        Smooth(path);
+        Bend(path);
         if (fixedLink > 0) spacing = RouteLength(path) / fixedLink;
 
         float along = spacing;
@@ -390,21 +394,55 @@ public class MeterTerminal : MonoBehaviour
         }
     }
 
-    // Rounds the route's corners so the wire bends instead of kinking; its ends stay in place.
-    static void Smooth(List<Vector3> route)
+    /// <summary>
+    /// Sale recto de la boca y dobla cada esquina de la ruta con un arco de radio fijo, como un cable
+    /// doblado a mano; los extremos se quedan en su lugar.
+    /// </summary>
+    void Bend(List<Vector3> route)
     {
-        for (int pass = 0; pass < 2; pass++)
+        Vector3 back = -transform.forward;
+        if (leadOut > 0f && route.Count > 1 && Vector3.Dot(route[1] - route[0], back) > leadOut * 1.5f)
+            route.Insert(1, route[0] + back * leadOut);
+
+        var bent = new List<Vector3> { route[0] };
+        for (int i = 1; i < route.Count - 1; i++)
         {
-            var smooth = new List<Vector3> { route[0] };
-            for (int i = 1; i < route.Count; i++)
+            Vector3 corner = route[i];
+            Vector3 toPrev = route[i - 1] - corner;
+            Vector3 toNext = route[i + 1] - corner;
+            float prevLength = toPrev.magnitude, nextLength = toNext.magnitude;
+            if (prevLength < 1e-4f || nextLength < 1e-4f)
             {
-                if (i > 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.25f));
-                if (i < route.Count - 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.75f));
+                bent.Add(corner);
+                continue;
             }
-            smooth.Add(route[route.Count - 1]);
-            route.Clear();
-            route.AddRange(smooth);
+            toPrev /= prevLength;
+            toNext /= nextLength;
+
+            float opening = Vector3.Angle(toPrev, toNext) * Mathf.Deg2Rad;
+            if (opening > Mathf.PI - 0.05f || opening < 0.01f)
+            {
+                bent.Add(corner);
+                continue;
+            }
+
+            // Shrinks the radius where the segments are too short for it, so neighboring bends don't overlap.
+            float half = opening * 0.5f;
+            float cut = Mathf.Min(bendRadius / Mathf.Tan(half), prevLength * 0.5f, nextLength * 0.5f);
+            float radius = cut * Mathf.Tan(half);
+            Vector3 start = corner + toPrev * cut;
+            Vector3 end = corner + toNext * cut;
+            Vector3 center = corner + (toPrev + toNext).normalized * (radius / Mathf.Sin(half));
+
+            float turn = (Mathf.PI - opening) * Mathf.Rad2Deg;
+            int steps = Mathf.Max(2, Mathf.CeilToInt(turn / 15f));
+            Vector3 from = start - center, to = end - center;
+            for (int s = 0; s <= steps; s++)
+                bent.Add(center + Vector3.Slerp(from, to, s / (float)steps));
         }
+        bent.Add(route[route.Count - 1]);
+        route.Clear();
+        route.AddRange(bent);
     }
 
     /// <summary>Primer eslabón desde la punta que otro sistema mantiene fijo, o -1 si no hay uno cerca.</summary>
