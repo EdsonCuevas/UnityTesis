@@ -119,6 +119,7 @@
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\WireTip.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
+    <Compile Include="Assets\Scripts\nivel_2\CoverScrewStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\RegistroLid.cs" />
     <Compile Include="Assets\Scripts\nivel_2\SeatedPartStep.cs" />
   </ItemGroup>

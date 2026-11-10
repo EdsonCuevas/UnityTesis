@@ -29,6 +29,8 @@ $pasos = [ordered]@{
     '06_pelar_neutro_caja'    = 'El cable blanco también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
     '07_conectar_neutro_caja' = 'Mete la punta pelada del cable blanco por arriba de la barra de neutros, a la izquierda de la caja. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
     '08_cerrar_caja'          = 'Toma la tapa, acércala al frente de la caja y suéltala para que se acomode.'
+    '02_aflojar_tornillos_tapa' = 'La tapa está sujeta con dos tornillos, uno arriba y otro abajo. Apoya el destornillador en cada uno y aflójalo: mantén el gatillo y gira a la izquierda hasta que se suelte.'
+    '10_apretar_tornillos_tapa' = 'Aprieta con el destornillador los dos tornillos de la tapa, arriba y abajo: mantén el gatillo y gira a la derecha hasta el tope.'
 }
 
 # El texto debe ser idéntico al del aviso en el juego, porque la voz se busca por ese texto.
@@ -38,6 +40,8 @@ $avisos = [ordered]@{
     'aviso_acercar_tapa'      = 'Acerca la tapa al frente de la caja antes de soltarla'
     'aviso_lugar_fase_caja'   = 'Ese no es su lugar: la fase va en el bloque de la pastilla'
     'aviso_lugar_neutro_caja' = 'Ese no es su lugar: el neutro va en la barra de neutros'
+    'aviso_tomar_destornillador_aflojar_tapa' = 'Toma el destornillador y afloja los tornillos de la tapa'
+    'aviso_tomar_destornillador_apretar_tapa' = 'Toma el destornillador y aprieta los tornillos de la tapa'
 }
 
 $entorno = @{}
