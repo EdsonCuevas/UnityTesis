@@ -123,6 +123,7 @@ Notas de avance (agregar al terminar cada etapa: qué quedó, qué falta, qué h
   - **Ruta por el tubo (corrección tras probar)**: los cables atravesaban el murete por detrás. Ahora la ruta sigue `GEO_TubosTrans`: centro en y 1.339, codo de radio 0.059 y bajada en z −0.1035, hasta y 1.22 dentro de `CajaTermomagnetica`. Son unos 42 cm. Se quitaron de `segments` y se apagaron los eslabones que sobraban; `EndAnchor` se unió al nuevo último eslabón. Esto reemplaza la cola de ~1 m y la distancia de 75 cm mencionadas antes.
   - **Audios**: generados por el usuario y asignados (2 pasos nuevos en `narration`, 5 avisos en `voiceCues`, 38 en total; los 2 pelados conservan su archivo).
   - **Pendiente**: probar en el visor qué tan cómodo es entrar al hueco y empujar ~42 cm.
+  - **"Ya no alcanza" al empujar (2026-11-09)**: con ~40 eslabones de 2.6 cm, agarrar cualquiera de los últimos 16 (~42 cm) contaba como "sostener la otra punta" y se medía hasta la punta pelable colgando, así que la segunda mitad se bloqueaba. Opción A + C: `MaxReachableProgress` solo limita por un inicio fijo o agarrado, o por el eslabón agarrado más lejano fuera del ducto (sin contar la mano que empuja); si nada lo detiene, el resto se arrastra. Aviso nuevo `ConduitStep.heldBackHint` "Deja libre el resto del cable: se arrastra solo al empujar" con su voz `aviso_carga_soltar_resto` en SampleScene y Nivel1_220. El aviso viejo queda para inicios fijos (tutorial).
 
 ---
 

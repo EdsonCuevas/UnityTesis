@@ -58,6 +58,7 @@ $textos = [ordered]@{
     'Nivel1/Avisos/aviso_carga_apuntar' = 'Apunta la punta del cable hacia el hueco del fondo de la base'
     'Nivel1/Avisos/aviso_carga_mas_cerca' = 'Sujeta el cable más cerca de la entrada para empujarlo'
     'Nivel1/Avisos/aviso_carga_no_alcanza' = 'Ya no alcanza el cable: acerca el resto al tubo'
+    'Nivel1/Avisos/aviso_carga_soltar_resto' = 'Deja libre el resto del cable: se arrastra solo al empujar'
     'Nivel1/Avisos/aviso_carga_otra_punta' = 'Esa punta se queda de este lado: mete la otra por el hueco'
     'Nivel1/Avisos/aviso_carga_resbalo' = 'El cable se resbaló: empuja más despacio en las curvas'
     'Nivel1/Avisos/aviso_cortar_sobre_marca' = 'Ahí no: corta sobre la marca, a unos 40 centímetros de donde sale el cable del tubo'

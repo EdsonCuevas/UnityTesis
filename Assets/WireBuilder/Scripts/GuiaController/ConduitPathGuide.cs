@@ -204,29 +204,53 @@ public class ConduitPathGuide : MonoBehaviour
     /// <summary>Avance máximo posible sin que el cable que queda afuera deje de alcanzar su inicio.</summary>
     public float MaxReachableProgress()
     {
-        // A free start end just gets dragged along, so only the cable's own length limits the feed.
-        if (StartEndIsFree())
-            return Mathf.Clamp((_chain.Length - 1) * _spacing - 0.0001f, 0f, _pathLength);
+        // Whatever holds the cable back (a fixed start end or a hand) needs the cable in between
+        // to still reach it; with nothing holding it, the rest just gets dragged along.
+        float needed;
+        int linksUpToAnchor;
+        if (StartEndIsHeldBack())
+        {
+            needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
+            linksUpToAnchor = _chain.Length;
+        }
+        else
+        {
+            int held = FarthestHeldOutsideLink();
+            if (held < 0)
+                return Mathf.Clamp((_chain.Length - 1) * _spacing - 0.0001f, 0f, _pathLength);
+            needed = Vector3.Distance(_chain[held].position, _samples[0]);
+            linksUpToAnchor = held + 1;
+        }
 
-        float needed = Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
-        int allowedInside = _chain.Length - Mathf.CeilToInt(needed / _spacing);
+        int allowedInside = linksUpToAnchor - Mathf.CeilToInt(needed / _spacing);
         return Mathf.Clamp(allowedInside * _spacing - 0.0001f, 0f, _pathLength);
     }
 
-    bool StartEndIsFree()
+    /// <summary>
+    /// El inicio del cable está fijo en la escena (no se arrastra). Ahí el aviso pide acercar el resto;
+    /// si no, lo que frena es una mano y el aviso pide soltarlo.
+    /// </summary>
+    public bool StartEndIsFixed
     {
-        var start = wireController.starAnchorTemp;
-        var body = start.GetComponent<Rigidbody>();
-        if (body == null || body.isKinematic) return false;
+        get
+        {
+            var start = wireController.starAnchorTemp;
+            var body = start.GetComponent<Rigidbody>();
+            return (body == null || body.isKinematic) && !IsHeld(start.GetComponent<Grabbable>());
+        }
+    }
 
-        var grabbable = start.GetComponent<Grabbable>();
-        if (grabbable != null && grabbable.SelectingPointsCount > 0) return false;
+    bool StartEndIsHeldBack() => StartEndIsFixed || IsHeld(wireController.starAnchorTemp.GetComponent<Grabbable>());
 
-        int last = _chain.Length - 1;
-        for (int i = Mathf.Max(_inside, last - tipGrabLinks * 2); i <= last; i++)
-            if (_grabbables[i] != null && _grabbables[i].SelectingPointsCount > 0)
-                return false;
-        return true;
+    static bool IsHeld(Grabbable grabbable) => grabbable != null && grabbable.SelectingPointsCount > 0;
+
+    /// <summary>Eslabón agarrado más lejos de la punta, fuera del ducto, sin contar la mano que empuja. -1 = ninguno.</summary>
+    int FarthestHeldOutsideLink()
+    {
+        for (int i = _chain.Length - 1; i >= _inside; i--)
+            if (i != _pushLink && IsHeld(_grabbables[i]))
+                return i;
+        return -1;
     }
 
     /// <summary>Lleva la punta hasta esa distancia del recorrido (solo avanza). Lo usa la guía jalacables.</summary>
@@ -408,12 +432,11 @@ public class ConduitPathGuide : MonoBehaviour
         if (feed > 0f)
         {
             feed = Mathf.Min(feed, pushStep);
-            float outsideAfter = (_chain.Length - LinksInsideFor(_progress + feed)) * _spacing;
-            float needed = StartEndIsFree() ? 0f : Vector3.Distance(wireController.starAnchorTemp.position, _samples[0]) + slackMargin;
-            if (outsideAfter < needed)
+            float room = MaxReachableProgress() - _progress;
+            if (feed > room)
             {
                 Status = FeedStatus.OutOfSlack;
-                feed = 0f;
+                feed = Mathf.Max(0f, room);
             }
         }
         else

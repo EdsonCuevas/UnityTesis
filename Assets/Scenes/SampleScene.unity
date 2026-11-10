@@ -243627,6 +243627,8 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: eec50a61c723aef438ad0b1732c17750, type: 3}
   - text: 'Ya no alcanza el cable: acerca el resto al tubo'
     clip: {fileID: 8300000, guid: fe3b805d2792d9149bbad05d8ab2f53e, type: 3}
+  - text: 'Deja libre el resto del cable: se arrastra solo al empujar'
+    clip: {fileID: 8300000, guid: d3a9e402bdcc47e7923d10d5da516fd4, type: 3}
   - text: 'La tapa pesa mucho: usa las dos manos para levantarla'
     clip: {fileID: 8300000, guid: 31e7e8990510fa0429d3a0ecf989970b, type: 3}
   - text: "Mant\xE9n el gatillo y gira la mu\xF1eca a la izquierda para aflojar"

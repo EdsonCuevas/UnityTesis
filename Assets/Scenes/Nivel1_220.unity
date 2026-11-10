@@ -301618,6 +301618,8 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: eec50a61c723aef438ad0b1732c17750, type: 3}
   - text: 'Ya no alcanza el cable: acerca el resto al tubo'
     clip: {fileID: 8300000, guid: fe3b805d2792d9149bbad05d8ab2f53e, type: 3}
+  - text: 'Deja libre el resto del cable: se arrastra solo al empujar'
+    clip: {fileID: 8300000, guid: d3a9e402bdcc47e7923d10d5da516fd4, type: 3}
   - text: "Engancha los cuatro cables a la gu\xEDa antes de encintar"
     clip: {fileID: 8300000, guid: afe6241ed01b2ea418d05be3ac5647b8, type: 3}
   - text: "La gu\xEDa est\xE1 atorada: ve al murete y empuja los cuatro cables hacia
