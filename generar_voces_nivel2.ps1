@@ -23,7 +23,7 @@ $pasos = [ordered]@{
     '00_intro'                = 'El medidor ya está cableado. Ahora conecta los cables de carga en la caja de la pastilla, detrás del murete. Elige cómo quieres hacerlo.'
     '01_rodear_murete'        = 'La caja de la pastilla está del otro lado del murete. Sigue la línea del piso y párate frente a ella.'
     '02_quitar_tapa'          = 'Agarra la tapa con el grip, jálala hacia ti y déjala a un lado.'
-    '03_montar_pastilla'      = 'Toma la pastilla termomagnética de la mesa. Acércala al centro de la caja y suéltala para que encaje.'
+    '03_montar_pastilla'      = 'Toma la pastilla termomagnética de la mesa y suéltala en el centro de la caja: se engancha abajo. Luego empuja con la mano su parte de arriba hacia el bloque hasta que haga clic.'
     '04_pelar_fase_caja'      = 'El cable rojo viene del medidor. Sácalo de la caja, coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
     '05_conectar_fase_caja'   = 'Mete la punta pelada del cable rojo por arriba del bloque que alimenta la pastilla. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
     '06_pelar_neutro_caja'    = 'El cable blanco también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
@@ -34,6 +34,7 @@ $pasos = [ordered]@{
 # El texto debe ser idéntico al del aviso en el juego, porque la voz se busca por ese texto.
 $avisos = [ordered]@{
     'aviso_acercar_pastilla'  = 'Acerca la pastilla al centro de la caja antes de soltarla'
+    'aviso_empujar_pastilla'  = 'Empuja la parte de arriba de la pastilla hasta que haga clic'
     'aviso_acercar_tapa'      = 'Acerca la tapa al frente de la caja antes de soltarla'
     'aviso_lugar_fase_caja'   = 'Ese no es su lugar: la fase va en el bloque de la pastilla'
     'aviso_lugar_neutro_caja' = 'Ese no es su lugar: el neutro va en la barra de neutros'
