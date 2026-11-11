@@ -56,7 +56,7 @@ public class TutorialManager : GuidedFlowManager
 
         panel.SetButtons(
             new TutorialPanel.ButtonSpec("Repetir tutorial", () => LoadScene(SceneManager.GetActiveScene().name)),
-            new TutorialPanel.ButtonSpec("Ir al nivel", () => LoadScene(nextSceneName)),
+            new TutorialPanel.ButtonSpec("Ir al nivel", () => LoadScene(VoltageMode.SceneFor(nextSceneName))),
             new TutorialPanel.ButtonSpec("Menú principal", () => LoadScene(menuSceneName)));
     }
 }

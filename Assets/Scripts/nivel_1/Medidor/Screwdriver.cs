@@ -92,7 +92,7 @@ public class Screwdriver : MonoBehaviour
         // Once the terminal locks, let go so the finished screw can't be worked any more.
         if (CurrentScrew.Locked || Vector3.Distance(hand.position, handAtEngage) > releaseDistance)
         {
-            // Otherwise the next connector screw, 1.35 cm away, would couple while still twisting.
+            // Otherwise a nearby screw would couple while still twisting.
             if (CurrentScrew.Locked) finishedScrew = CurrentScrew;
             Disengage();
             return;

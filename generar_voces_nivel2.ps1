@@ -4,10 +4,13 @@
 # Uso (desde la raíz del proyecto):
 #   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1
 #   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1 -Muestras es-MX-DaliaNeural,es-MX-JorgeNeural
+#   powershell -ExecutionPolicy Bypass -File .\generar_voces_nivel2.ps1 -Solo 06_pelar_neutro_caja,07_conectar_neutro_caja
 # Con -Muestras solo crea un WAV por voz en Muestras_Voces, sin tocar los audios del juego.
+# Con -Solo solo regenera los pasos o avisos nombrados.
 param(
     [string]$Voz = 'es-MX-Dalia:DragonHDLatestNeural',
-    [string[]]$Muestras
+    [string[]]$Muestras,
+    [string[]]$Solo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -20,20 +23,25 @@ $pasos = [ordered]@{
     '00_intro'                = 'El medidor ya está cableado. Ahora conecta los cables de carga en la caja de la pastilla, detrás del murete. Elige cómo quieres hacerlo.'
     '01_rodear_murete'        = 'La caja de la pastilla está del otro lado del murete. Sigue la línea del piso y párate frente a ella.'
     '02_quitar_tapa'          = 'Agarra la tapa con el grip, jálala hacia ti y déjala a un lado.'
-    '03_montar_pastilla'      = 'Toma la pastilla termomagnética del piso. Acércala al centro de la caja y suéltala para que encaje.'
+    '03_montar_pastilla'      = 'Toma la pastilla termomagnética de la mesa y suéltala en el centro de la caja: se engancha abajo. Luego empuja con la mano su parte de arriba hacia el bloque hasta que haga clic.'
     '04_pelar_fase_caja'      = 'El cable rojo viene del medidor. Sácalo de la caja, coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
     '05_conectar_fase_caja'   = 'Mete la punta pelada del cable rojo por arriba del bloque que alimenta la pastilla. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
-    '06_pelar_neutro_caja'    = 'El cable negro también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
-    '07_conectar_neutro_caja' = 'Mete la punta pelada del cable negro por arriba de la barra de neutros, a la izquierda de la caja. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
+    '06_pelar_neutro_caja'    = 'El cable blanco también viene del medidor. Coloca las pinzas sobre la marca de su punta, aprieta el gatillo y jala hacia la punta. Sostén el cable con la otra mano.'
+    '07_conectar_neutro_caja' = 'Mete la punta pelada del cable blanco por arriba de la barra de neutros, a la izquierda de la caja. Luego aprieta su tornillo con el destornillador: mantén el gatillo y gira a la derecha.'
     '08_cerrar_caja'          = 'Toma la tapa, acércala al frente de la caja y suéltala para que se acomode.'
+    '02_aflojar_tornillos_tapa' = 'La tapa está sujeta con dos tornillos, uno arriba y otro abajo. Apoya el destornillador en cada uno y aflójalo: mantén el gatillo y gira a la izquierda hasta que se suelte.'
+    '10_apretar_tornillos_tapa' = 'Aprieta con el destornillador los dos tornillos de la tapa, arriba y abajo: mantén el gatillo y gira a la derecha hasta el tope.'
 }
 
 # El texto debe ser idéntico al del aviso en el juego, porque la voz se busca por ese texto.
 $avisos = [ordered]@{
     'aviso_acercar_pastilla'  = 'Acerca la pastilla al centro de la caja antes de soltarla'
+    'aviso_empujar_pastilla'  = 'Empuja la parte de arriba de la pastilla hasta que haga clic'
     'aviso_acercar_tapa'      = 'Acerca la tapa al frente de la caja antes de soltarla'
     'aviso_lugar_fase_caja'   = 'Ese no es su lugar: la fase va en el bloque de la pastilla'
     'aviso_lugar_neutro_caja' = 'Ese no es su lugar: el neutro va en la barra de neutros'
+    'aviso_tomar_destornillador_aflojar_tapa' = 'Toma el destornillador y afloja los tornillos de la tapa'
+    'aviso_tomar_destornillador_apretar_tapa' = 'Toma el destornillador y aprieta los tornillos de la tapa'
 }
 
 $entorno = @{}
@@ -60,6 +68,7 @@ function Sintetizar($voz, $texto, $ruta) {
 function Generar($carpeta, $textos) {
     New-Item -ItemType Directory -Force $carpeta | Out-Null
     foreach ($nombre in $textos.Keys) {
+        if ($Solo -and ($Solo -split ',') -notcontains $nombre) { continue }
         Sintetizar $Voz $textos[$nombre] (Join-Path $carpeta ($nombre + '.wav'))
     }
 }

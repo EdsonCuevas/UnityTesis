@@ -19,6 +19,10 @@ public class GuidePullStep : TutorialStep
     [TextArea(2, 6)] public string jamBody =
         "La guía se atoró. Ve al murete, agarra un cable justo debajo de donde entra al medidor " +
         "y empújalo hacia arriba, hacia el medidor, con movimientos cortos. Los tres cables entran juntos.";
+    [Tooltip("Aviso al jalar la guía mientras está atorada.")]
+    public string jammedPullHint = "La guía está atorada: ve al murete y empuja los tres cables hacia el medidor";
+    [Tooltip("Aviso al jalar sin haber enganchado todos los cables.")]
+    public string notHookedHint = "Engancha los tres cables a la guía antes de jalar";
     [Tooltip("Narración de la descripción del atasco.")]
     public AudioClip jamNarration;
     [Tooltip("Narración al destrabarse la guía.")]
@@ -55,13 +59,13 @@ public class GuidePullStep : TutorialStep
         if (guide.IsJammed) ShowUnjamProgress();
 
         string hint =
-            Time.time - guide.LastJammedPullTime < 1f ? "La guía está atorada: ve al murete y empuja los tres cables hacia el medidor" :
+            Time.time - guide.LastJammedPullTime < 1f ? jammedPullHint :
             guide.IsJammed && AnyCableNeedsCloserGrip() ? "Agarra el cable más arriba, justo debajo de donde entra al medidor" :
             Time.time - CableSlipTime() < 1f ? "El cable se resbaló: empújalo más despacio" :
             Time.time - guide.LastPushBlockedTime < 1f
                 ? (guide.IsJammed ? "Un cable ya no alcanza: acerca su rollo al medidor" : "Ya empujaste suficiente cable: regresa al registro a jalar la guía") :
             Time.time - guide.LastSlipTime < 1f ? "La guía se resbaló: jala más despacio en las curvas" :
-            Time.time - guide.LastBlockedTime < 1f ? "Engancha los tres cables a la guía antes de jalar" :
+            Time.time - guide.LastBlockedTime < 1f ? notHookedHint :
             Time.time - guide.LastUntapedTime < 1f ? "Encinta el amarre de los cables antes de jalar la guía" :
             Time.time - guide.LastOutOfSlackTime < 1f ? "Un cable ya no alcanza: acerca su rollo al medidor" :
             null;

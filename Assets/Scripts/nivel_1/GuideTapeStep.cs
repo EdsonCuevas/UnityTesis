@@ -3,6 +3,8 @@ using UnityEngine;
 public class GuideTapeStep : TutorialStep
 {
     public GuideTape tape;
+    [Tooltip("Aviso al intentar encintar sin haber enganchado todos los cables.")]
+    public string notHookedHint = "Engancha los tres cables a la guía antes de encintar";
 
     float heldSince;
     float nextHintTime;
@@ -29,7 +31,7 @@ public class GuideTapeStep : TutorialStep
 
         float heldFor = Time.time - heldSince;
         string hint =
-            Time.time - tape.LastNotHookedTime < 1f ? "Engancha los tres cables a la guía antes de encintar" :
+            Time.time - tape.LastNotHookedTime < 1f ? notHookedHint :
             !tape.IsStuck && heldFor > 5f ? "Acerca el rollo a la cabeza de la guía, donde están enganchados los cables" :
             tape.IsStuck && heldFor > 5f && Time.time - tape.LastTurnTime > 5f ? "Da vueltas con el rollo alrededor del amarre, siempre en el mismo sentido" :
             null;

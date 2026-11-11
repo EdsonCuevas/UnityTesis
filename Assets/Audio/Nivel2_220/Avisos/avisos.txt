@@ -1,0 +1,3 @@
+aviso_sostener_negro|Sostén el cable negro con la otra mano para poder jalar
+aviso_lugar_faseA_caja|Ese no es su lugar: la fase A va en la zapata derecha del bloque
+aviso_lugar_faseB_caja|Ese no es su lugar: la fase B va en la zapata izquierda del bloque

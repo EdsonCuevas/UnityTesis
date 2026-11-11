@@ -3,9 +3,11 @@ using UnityEngine;
 using UnityEngine.Events;
 
 /// <summary>
-/// Boca de una terminal del medidor (zapata o entrada del conector de neutro). Su posición es la boca y su
-/// eje Z la dirección en que entra el cable. Acepta cualquier punta pelada que se le acerque sostenida;
-/// sin apretar el tornillo el cable se sale al jalarlo, y ya apretado se queda acomodado.
+/// Boca de una terminal del medidor (zapata o conector de neutro). Su posición es la boca y su eje Z la
+/// dirección en que entra el cable. Acepta cualquier punta pelada que se le acerque sostenida; sin apretar
+/// el tornillo el cable se sale al jalarlo, y ya apretado se queda acomodado.
+/// Una terminal puede recibir varios cables bajo el mismo tornillo (el conector de neutro): para meter otro
+/// hay que aflojar el tornillo, y los cables que ya estaban bien apretados se quedan en su lugar.
 /// </summary>
 public class MeterTerminal : MonoBehaviour
 {
@@ -14,6 +16,35 @@ public class MeterTerminal : MonoBehaviour
         Empty,
         Inserted,
         Tightened
+    }
+
+    [System.Serializable]
+    public class WireRoute
+    {
+        [Tooltip("Puntas que siguen esta ruta.")]
+        public WireStripper[] wires = new WireStripper[0];
+        [Tooltip("Lugar dentro de la boca, de 0 a capacidad − 1, repartidos a lo largo del eje X de la terminal.")]
+        public int slot;
+        [Tooltip("Puntos por donde se acomoda el cable al apretar el tornillo, en orden desde la boca.")]
+        public Transform[] points = new Transform[0];
+
+        public bool Uses(WireStripper wire) => wires != null && System.Array.IndexOf(wires, wire) >= 0;
+    }
+
+    /// <summary>Un cable metido en la boca.</summary>
+    class Seat
+    {
+        public WireTip tip;
+        public int slot;
+        /// <summary>Apretado y correcto: ya no se sale ni se suelta al aflojar para meter otro cable.</summary>
+        public bool secured;
+        public int pullLink = -1;
+        public float pullBaseline;
+        public readonly List<Vector3> dressTargets = new List<Vector3>();
+        public readonly List<Vector3> dressStarts = new List<Vector3>();
+        public float dressStartTime;
+
+        public WireStripper Wire => tip.Stripper;
     }
 
     public static readonly List<MeterTerminal> All = new List<MeterTerminal>();
@@ -29,6 +60,10 @@ public class MeterTerminal : MonoBehaviour
     public WireStripper[] accepts;
 
     [Header("Entrada")]
+    [Tooltip("Cuántos cables caben bajo el tornillo.")]
+    [Min(1)] public int capacity = 1;
+    [Tooltip("Separación entre los cables dentro de la boca, a lo largo del eje X de la terminal.")]
+    public float slotSpacing = 0.005f;
     [Tooltip("Distancia máxima del extremo de la punta a la boca para meterla.")]
     public float acceptRadius = 0.03f;
     [Tooltip("Ángulo máximo entre la punta y la dirección de entrada.")]
@@ -41,8 +76,14 @@ public class MeterTerminal : MonoBehaviour
     public float pullOutDistance = 0.04f;
 
     [Header("Acomodo")]
-    [Tooltip("Puntos por donde se acomoda el cable al apretar el tornillo, en orden desde la boca.")]
+    [Tooltip("Ruta por defecto por donde se acomoda el cable al apretar el tornillo, en orden desde la boca.")]
     public Transform[] dressPoints;
+    [Tooltip("Rutas propias de algunos cables; los demás usan la ruta por defecto.")]
+    public WireRoute[] routes = new WireRoute[0];
+    [Tooltip("Radio de las curvas del cable acomodado.")]
+    public float bendRadius = 0.012f;
+    [Tooltip("Tramo recto con que el cable sale de la boca antes de doblar.")]
+    public float leadOut = 0.008f;
     public float dressSeconds = 0.4f;
     [Tooltip("Eslabones máximos entre la punta y el resto fijo del cable para acomodar todo el tramo hasta ahí.")]
     public int maxDressLinks = 60;
@@ -57,19 +98,16 @@ public class MeterTerminal : MonoBehaviour
     /// <summary>Lo activa el primer paso de conexión, para que no entren cables antes.</summary>
     public bool Accepting { get; set; }
     public TerminalState State { get; private set; }
-    public WireStripper Wire { get; private set; }
-    public bool HasCorrectWire => Wire != null && Accepts(Wire);
+    public int Count => seats.Count;
+    public bool HasRoom => seats.Count < capacity;
+    /// <summary>La boca está cerrada por el tornillo y no entra otro cable.</summary>
+    public bool IsClosed => screw.Turns >= closedTurns;
     public float LastUnstrippedTime { get; private set; } = float.NegativeInfinity;
     public float LastClosedTime { get; private set; } = float.NegativeInfinity;
 
     static WireStripper[] tips;
 
-    WireTip seated;
-    int pullLink = -1;
-    float pullBaseline;
-    readonly List<Vector3> dressTargets = new List<Vector3>();
-    readonly List<Vector3> dressStarts = new List<Vector3>();
-    float dressStartTime;
+    readonly List<Seat> seats = new List<Seat>();
 
     void OnEnable() => All.Add(this);
     void OnDisable() => All.Remove(this);
@@ -82,37 +120,57 @@ public class MeterTerminal : MonoBehaviour
 
     public bool Accepts(WireStripper wire) => System.Array.IndexOf(accepts, wire) >= 0;
 
+    /// <summary>Cables metidos en esta terminal.</summary>
+    public IEnumerable<WireStripper> Wires
+    {
+        get
+        {
+            foreach (var seat in seats) yield return seat.Wire;
+        }
+    }
+
+    /// <summary>Cables metidos que todavía se pueden sacar (no quedaron apretados en su lugar correcto).</summary>
+    public IEnumerable<WireStripper> LooseWires
+    {
+        get
+        {
+            foreach (var seat in seats)
+                if (!seat.secured) yield return seat.Wire;
+        }
+    }
+
+    public bool Contains(WireStripper wire) => FindSeat(wire) != null;
+
     /// <summary>Terminal donde está metida esa punta, o null.</summary>
     public static MeterTerminal Holding(WireStripper wire)
     {
         foreach (var terminal in All)
-            if (terminal.Wire == wire) return terminal;
+            if (terminal.Contains(wire)) return terminal;
         return null;
     }
 
     void Update()
     {
-        if (State == TerminalState.Empty)
-        {
-            if (Accepting) TryInsert();
-            return;
-        }
+        if (Accepting && HasRoom) TryInsert();
+        if (seats.Count == 0) return;
 
         if (State == TerminalState.Inserted && screw.IsTight) Tighten();
         else if (State == TerminalState.Tightened && !screw.IsTight) Loosen();
 
-        if (State == TerminalState.Inserted && IsPulledOut()) Remove(true);
+        if (State != TerminalState.Inserted) return;
+        for (int i = seats.Count - 1; i >= 0; i--)
+            if (!seats[i].secured && IsPulledOut(seats[i])) Remove(seats[i], true);
     }
 
     void FixedUpdate()
     {
-        if (seated != null) HoldInPlace();
+        foreach (var seat in seats) HoldInPlace(seat);
     }
 
     void LateUpdate()
     {
         // The aligner is off while seated, so the tip points into the terminal.
-        if (seated != null) seated.Stripper.transform.rotation = Quaternion.LookRotation(transform.forward);
+        foreach (var seat in seats) seat.Wire.transform.rotation = Quaternion.LookRotation(transform.forward);
     }
 
     void TryInsert()
@@ -132,7 +190,7 @@ public class MeterTerminal : MonoBehaviour
                 LastUnstrippedTime = Time.time;
                 continue;
             }
-            if (screw.Turns >= closedTurns)
+            if (IsClosed)
             {
                 LastClosedTime = Time.time;
                 continue;
@@ -143,12 +201,12 @@ public class MeterTerminal : MonoBehaviour
         }
     }
 
-    // The neutral connector entries sit close together; the tip goes into the nearest free one.
+    // Terminal mouths can sit close together; the tip goes into the nearest one with room.
     bool CloserTerminal(Vector3 point)
     {
         float distance = Vector3.Distance(point, transform.position);
         foreach (var other in All)
-            if (other != this && other.Accepting && other.State == TerminalState.Empty &&
+            if (other != this && other.Accepting && other.HasRoom &&
                 Vector3.Distance(point, other.transform.position) < distance)
                 return true;
         return false;
@@ -156,87 +214,131 @@ public class MeterTerminal : MonoBehaviour
 
     void Insert(WireTip tip)
     {
-        seated = tip;
-        Wire = tip.Stripper;
+        var seat = new Seat { tip = tip, slot = FreeSlot(tip.Stripper) };
+        seats.Add(seat);
         State = TerminalState.Inserted;
-        pullLink = -1;
         if (tip.Aligner != null) tip.Aligner.enabled = false;
-        dressTargets.Clear();
-        HoldInPlace();
+        HoldInPlace(seat);
 
         OnInserted.Invoke();
-        if (!HasCorrectWire) OnWrongWire.Invoke();
-        WireInserted?.Invoke(this, Wire);
+        if (!Accepts(seat.Wire)) OnWrongWire.Invoke();
+        WireInserted?.Invoke(this, seat.Wire);
     }
+
+    /// <summary>El lugar de la ruta del cable si está libre; si no, el primero libre.</summary>
+    int FreeSlot(WireStripper wire)
+    {
+        var route = RouteFor(wire);
+        if (route != null && route.slot >= 0 && route.slot < capacity && !SlotTaken(route.slot)) return route.slot;
+        for (int slot = 0; slot < capacity; slot++)
+            if (!SlotTaken(slot)) return slot;
+        return 0;
+    }
+
+    bool SlotTaken(int slot)
+    {
+        foreach (var seat in seats)
+            if (seat.slot == slot) return true;
+        return false;
+    }
+
+    WireRoute RouteFor(WireStripper wire)
+    {
+        if (routes == null) return null;
+        foreach (var route in routes)
+            if (route != null && route.Uses(wire)) return route;
+        return null;
+    }
+
+    Vector3 SlotPosition(int slot) => transform.position + transform.right * ((slot - (capacity - 1) * 0.5f) * slotSpacing);
 
     void Tighten()
     {
         State = TerminalState.Tightened;
-        // A correct connection can't be loosened by accident; a wrong one stays loosenable to fix it.
-        screw.Locked = HasCorrectWire;
-        BuildDress();
+        bool allCorrect = true;
+        foreach (var seat in seats)
+        {
+            bool correct = Accepts(seat.Wire);
+            allCorrect &= correct;
+            if (seat.secured) continue;
+            seat.secured = correct;
+            BuildDress(seat);
+        }
+        // A full, correct terminal can't be loosened by accident; otherwise it must open again for the next
+        // wire, or to fix a wrong one.
+        screw.Locked = allCorrect && seats.Count >= capacity;
         OnTightened.Invoke();
     }
 
     void Loosen()
     {
         State = TerminalState.Inserted;
-        for (int i = 1; i <= dressTargets.Count; i++) seated.Unpin(i);
-        dressTargets.Clear();
-        pullLink = -1;
+        foreach (var seat in seats)
+        {
+            if (seat.secured) continue;
+            for (int i = 1; i <= seat.dressTargets.Count; i++) seat.tip.Unpin(i);
+            seat.dressTargets.Clear();
+            seat.pullLink = -1;
+        }
         OnLoosened.Invoke();
     }
 
-    void Remove(bool pulled)
+    void Remove(Seat seat, bool pulled)
     {
-        var tip = seated;
-        var wire = Wire;
-        for (int i = 1; i <= dressTargets.Count; i++) tip.Unpin(i);
-        dressTargets.Clear();
+        var tip = seat.tip;
+        for (int i = 1; i <= seat.dressTargets.Count; i++) tip.Unpin(i);
+        seat.dressTargets.Clear();
         tip.Unpin(0);
         if (tip.Aligner != null) tip.Aligner.enabled = true;
 
-        seated = null;
-        Wire = null;
-        State = TerminalState.Empty;
+        seats.Remove(seat);
+        if (seats.Count == 0) State = TerminalState.Empty;
         OnRemoved.Invoke();
-        if (pulled) WirePulledOut?.Invoke(this, wire);
+        if (pulled) WirePulledOut?.Invoke(this, tip.Stripper);
+    }
+
+    Seat FindSeat(WireStripper wire)
+    {
+        foreach (var seat in seats)
+            if (seat.Wire == wire) return seat;
+        return null;
     }
 
     /// <summary>
     /// Sin apretar, la punta se sale si una mano estira el cable cerca de la terminal. El estiramiento se
     /// mide contra el mínimo desde que se agarró, porque al asentarse la punta el cable ya queda algo tenso.
     /// </summary>
-    bool IsPulledOut()
+    bool IsPulledOut(Seat seat)
     {
-        int held = seated.HeldLink(nearLinks);
+        int held = seat.tip.HeldLink(nearLinks);
         if (held < 1)
         {
-            pullLink = -1;
+            seat.pullLink = -1;
             return false;
         }
 
-        float stretch = Vector3.Distance(seated.Links[held].position, transform.position) - held * seated.Spacing;
-        if (held != pullLink)
+        float stretch = Vector3.Distance(seat.tip.Links[held].position, SlotPosition(seat.slot)) - held * seat.tip.Spacing;
+        if (held != seat.pullLink)
         {
-            pullLink = held;
-            pullBaseline = stretch;
+            seat.pullLink = held;
+            seat.pullBaseline = stretch;
         }
-        pullBaseline = Mathf.Min(pullBaseline, stretch);
-        return stretch - pullBaseline > pullOutDistance;
+        seat.pullBaseline = Mathf.Min(seat.pullBaseline, stretch);
+        return stretch - seat.pullBaseline > pullOutDistance;
     }
 
-    void HoldInPlace()
+    void HoldInPlace(Seat seat)
     {
-        seated.Pin(0, transform.position, transform.rotation);
+        Vector3 mouth = SlotPosition(seat.slot);
+        seat.tip.Pin(0, mouth, transform.rotation);
 
-        float t = dressSeconds > 0f ? Mathf.Clamp01((Time.time - dressStartTime) / dressSeconds) : 1f;
-        for (int i = 0; i < dressTargets.Count; i++)
+        float t = dressSeconds > 0f ? Mathf.Clamp01((Time.time - seat.dressStartTime) / dressSeconds) : 1f;
+        for (int i = 0; i < seat.dressTargets.Count; i++)
         {
-            Vector3 position = Vector3.Lerp(dressStarts[i], dressTargets[i], Mathf.SmoothStep(0f, 1f, t));
-            Vector3 previous = i == 0 ? transform.position : dressTargets[i - 1];
-            Vector3 direction = dressTargets[i] - previous;
-            seated.Pin(i + 1, position, direction.sqrMagnitude > 1e-8f ? Quaternion.LookRotation(direction) : Quaternion.identity);
+            Vector3 position = Vector3.Lerp(seat.dressStarts[i], seat.dressTargets[i], Mathf.SmoothStep(0f, 1f, t));
+            Vector3 previous = i == 0 ? mouth : seat.dressTargets[i - 1];
+            Vector3 direction = seat.dressTargets[i] - previous;
+            seat.tip.Pin(i + 1, position, direction.sqrMagnitude > 1e-8f ? Quaternion.LookRotation(direction) : Quaternion.identity);
         }
     }
 
@@ -245,73 +347,111 @@ public class MeterTerminal : MonoBehaviour
     /// cerca (en el ducto o en otra terminal), todo el tramo libre se reparte hasta ese punto, para que no
     /// quede un bucle colgando aunque sobre cable.
     /// </summary>
-    void BuildDress()
+    void BuildDress(Seat seat)
     {
-        dressTargets.Clear();
-        dressStarts.Clear();
-        dressStartTime = Time.time;
-        if (dressPoints == null || dressPoints.Length == 0) return;
+        seat.dressTargets.Clear();
+        seat.dressStarts.Clear();
+        seat.dressStartTime = Time.time;
 
-        var route = new List<Vector3> { transform.position };
-        foreach (var point in dressPoints)
-            if (point != null) route.Add(point.position);
+        var route = RouteFor(seat.Wire);
+        var points = route != null && route.points != null && route.points.Length > 0 ? route.points : dressPoints;
+        if (points == null || points.Length == 0) return;
 
-        int count = seated.Links.Length - 1;
-        float spacing = seated.Spacing;
-        int fixedLink = FixedLink();
+        var path = new List<Vector3> { SlotPosition(seat.slot) };
+        foreach (var point in points)
+            if (point != null) path.Add(point.position);
+
+        var tip = seat.tip;
+        int count = tip.Links.Length - 1;
+        float spacing = tip.Spacing;
+        int fixedLink = FixedLink(tip);
         if (fixedLink > 0)
         {
-            route.Add(seated.Links[fixedLink].position);
+            path.Add(tip.Links[fixedLink].position);
             count = fixedLink - 1;
         }
-        Smooth(route);
-        if (fixedLink > 0) spacing = RouteLength(route) / fixedLink;
+        Bend(path);
+        if (fixedLink > 0) spacing = RouteLength(path) / fixedLink;
 
         float along = spacing;
-        for (int i = 1; i < route.Count && dressTargets.Count < count; )
+        for (int i = 1; i < path.Count && seat.dressTargets.Count < count; )
         {
-            Vector3 from = route[i - 1];
-            float length = Vector3.Distance(from, route[i]);
+            Vector3 from = path[i - 1];
+            float length = Vector3.Distance(from, path[i]);
             if (along > length)
             {
                 along -= length;
-                route[i - 1] = route[i];
+                path[i - 1] = path[i];
                 i++;
                 continue;
             }
 
-            Vector3 target = Vector3.MoveTowards(from, route[i], along);
-            dressTargets.Add(target);
-            dressStarts.Add(seated.Links[dressTargets.Count].position);
-            route[i - 1] = target;
+            Vector3 target = Vector3.MoveTowards(from, path[i], along);
+            seat.dressTargets.Add(target);
+            seat.dressStarts.Add(tip.Links[seat.dressTargets.Count].position);
+            path[i - 1] = target;
             along = spacing;
         }
     }
 
-    // Rounds the route's corners so the wire bends instead of kinking; its ends stay in place.
-    static void Smooth(List<Vector3> route)
+    /// <summary>
+    /// Sale recto de la boca y dobla cada esquina de la ruta con un arco de radio fijo, como un cable
+    /// doblado a mano; los extremos se quedan en su lugar.
+    /// </summary>
+    void Bend(List<Vector3> route)
     {
-        for (int pass = 0; pass < 2; pass++)
+        Vector3 back = -transform.forward;
+        if (leadOut > 0f && route.Count > 1 && Vector3.Dot(route[1] - route[0], back) > leadOut * 1.5f)
+            route.Insert(1, route[0] + back * leadOut);
+
+        var bent = new List<Vector3> { route[0] };
+        for (int i = 1; i < route.Count - 1; i++)
         {
-            var smooth = new List<Vector3> { route[0] };
-            for (int i = 1; i < route.Count; i++)
+            Vector3 corner = route[i];
+            Vector3 toPrev = route[i - 1] - corner;
+            Vector3 toNext = route[i + 1] - corner;
+            float prevLength = toPrev.magnitude, nextLength = toNext.magnitude;
+            if (prevLength < 1e-4f || nextLength < 1e-4f)
             {
-                if (i > 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.25f));
-                if (i < route.Count - 1) smooth.Add(Vector3.Lerp(route[i - 1], route[i], 0.75f));
+                bent.Add(corner);
+                continue;
             }
-            smooth.Add(route[route.Count - 1]);
-            route.Clear();
-            route.AddRange(smooth);
+            toPrev /= prevLength;
+            toNext /= nextLength;
+
+            float opening = Vector3.Angle(toPrev, toNext) * Mathf.Deg2Rad;
+            if (opening > Mathf.PI - 0.05f || opening < 0.01f)
+            {
+                bent.Add(corner);
+                continue;
+            }
+
+            // Shrinks the radius where the segments are too short for it, so neighboring bends don't overlap.
+            float half = opening * 0.5f;
+            float cut = Mathf.Min(bendRadius / Mathf.Tan(half), prevLength * 0.5f, nextLength * 0.5f);
+            float radius = cut * Mathf.Tan(half);
+            Vector3 start = corner + toPrev * cut;
+            Vector3 end = corner + toNext * cut;
+            Vector3 center = corner + (toPrev + toNext).normalized * (radius / Mathf.Sin(half));
+
+            float turn = (Mathf.PI - opening) * Mathf.Rad2Deg;
+            int steps = Mathf.Max(2, Mathf.CeilToInt(turn / 15f));
+            Vector3 from = start - center, to = end - center;
+            for (int s = 0; s <= steps; s++)
+                bent.Add(center + Vector3.Slerp(from, to, s / (float)steps));
         }
+        bent.Add(route[route.Count - 1]);
+        route.Clear();
+        route.AddRange(bent);
     }
 
     /// <summary>Primer eslabón desde la punta que otro sistema mantiene fijo, o -1 si no hay uno cerca.</summary>
-    int FixedLink()
+    int FixedLink(WireTip tip)
     {
-        int last = Mathf.Min(maxDressLinks, seated.Links.Length - 1);
+        int last = Mathf.Min(maxDressLinks, tip.Links.Length - 1);
         for (int i = 1; i <= last; i++)
             // A held link is kinematic only because the hand locks it.
-            if (seated.Body(i).isKinematic && !seated.IsHeld(i)) return i;
+            if (tip.Body(i).isKinematic && !tip.IsHeld(i)) return i;
         return -1;
     }
 
@@ -326,11 +466,22 @@ public class MeterTerminal : MonoBehaviour
     {
         Gizmos.color = State == TerminalState.Tightened ? Color.green : State == TerminalState.Inserted ? Color.yellow : Color.cyan;
         Gizmos.DrawWireSphere(transform.position, acceptRadius);
-        Gizmos.DrawLine(transform.position, transform.position + transform.forward * 0.02f);
+        for (int slot = 0; slot < capacity; slot++)
+        {
+            Vector3 mouth = SlotPosition(slot);
+            Gizmos.DrawLine(mouth, mouth + transform.forward * 0.02f);
+        }
 
-        if (dressPoints == null) return;
-        Vector3 previous = transform.position;
-        foreach (var point in dressPoints)
+        DrawRoute(dressPoints, SlotPosition(0));
+        if (routes == null) return;
+        foreach (var route in routes)
+            if (route != null) DrawRoute(route.points, SlotPosition(Mathf.Clamp(route.slot, 0, capacity - 1)));
+    }
+
+    static void DrawRoute(Transform[] points, Vector3 previous)
+    {
+        if (points == null) return;
+        foreach (var point in points)
         {
             if (point == null) continue;
             Gizmos.DrawLine(previous, point.position);

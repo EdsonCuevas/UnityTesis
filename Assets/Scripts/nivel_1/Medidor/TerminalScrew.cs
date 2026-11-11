@@ -14,6 +14,10 @@ public class TerminalScrew : MonoBehaviour
     public float requiredTurns = 1f;
     [Tooltip("Cuánto baja el tornillo al apretarlo por completo.")]
     public float sinkDepth = 0.003f;
+    [Tooltip("Empieza apretado (por ejemplo, los tornillos de una tapa). La pose de la escena es la del tornillo flojo.")]
+    public bool startsTight;
+    [Tooltip("Empieza bloqueado: el destornillador no se acopla hasta que un paso lo libere.")]
+    public bool startsLocked;
 
     public float Turns { get; private set; }
     public bool IsTight => Turns >= requiredTurns - 0.001f;
@@ -32,6 +36,8 @@ public class TerminalScrew : MonoBehaviour
     {
         restPosition = head.localPosition;
         restRotation = head.localRotation;
+        if (startsTight) Turn(requiredTurns * 360f);
+        Locked = startsLocked;
     }
 
     void OnEnable() => All.Add(this);

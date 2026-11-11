@@ -90,12 +90,15 @@
     <Compile Include="Assets\Scripts\WallZoneTransparency.cs" />
     <Compile Include="Assets\Scripts\nivel_1\UI\LevelUIManager.cs" />
     <Compile Include="Assets\Scripts\tutorial\Pulse.cs" />
+    <Compile Include="Assets\Scripts\VoltageMode.cs" />
     <Compile Include="Assets\Scripts\nivel_1\GuideHookStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\IStepErrors.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireStartConnector.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialContext.cs" />
+    <Compile Include="Assets\Scripts\MenuVoltageSelector.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\MeterTerminalStep.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
+    <Compile Include="Assets\Scripts\nivel_1\HeavyLidTransformer.cs" />
     <Compile Include="Assets\Scripts\MenuLevelEntry.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
@@ -116,6 +119,7 @@
     <Compile Include="Assets\Scripts\tutorial\ComfortStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\WireTip.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\ConduitPathGuide.cs" />
+    <Compile Include="Assets\Scripts\nivel_2\CoverScrewStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\RegistroLid.cs" />
     <Compile Include="Assets\Scripts\nivel_2\SeatedPartStep.cs" />
   </ItemGroup>
@@ -125,9 +129,11 @@
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Mobile-2-Pass.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMPro_Mobile.cginc" />
+    <None Include="Assets\Audio\Nivel2_220\Avisos\avisos.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF SSD.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface-Mobile.shader" />
     <None Include="Assets\TextMesh Pro\Shaders\SDFFunctions.hlsl" />
+    <None Include="Assets\Audio\Nivel1_220\Avisos\avisos.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_SDF-Surface.shader" />
     <None Include="Assets\TextMesh Pro\Sprites\EmojiOne Attribution.txt" />
     <None Include="Assets\TextMesh Pro\Shaders\TMP_Bitmap-Custom-Atlas.shader" />

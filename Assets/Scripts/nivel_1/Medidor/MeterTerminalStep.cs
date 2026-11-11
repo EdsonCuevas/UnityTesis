@@ -15,6 +15,7 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
     const string TakeScrewdriverHint = "Toma el destornillador y aprieta el tornillo de la terminal";
     const string AlignHint = "Apoya la punta del destornillador en el tornillo, de frente";
     const string TurnHint = "Mantén el gatillo y gira la muñeca a la derecha para apretar";
+    const string LoosenHint = "Mantén el gatillo y gira la muñeca a la izquierda para aflojar";
     const string ReleaseTriggerHint = "Suelta el gatillo para regresar la muñeca";
     const string OtherWrongHint = "Ese no es su lugar: saca el cable y revisa a dónde va";
 
@@ -120,14 +121,15 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
     }
 
     /// <summary>
-    /// Cables que un paso anterior dejó en las terminales de este (en evaluación cuenta cualquier lugar):
-    /// hay que poder sacarlos para liberar la terminal.
+    /// Cables que un paso anterior dejó en las terminales llenas de este (en evaluación cuenta cualquier
+    /// lugar): hay que poder sacarlos para liberar la terminal. Los que quedaron bien apretados no salen.
     /// </summary>
     IEnumerable<WireStripper> Occupants()
     {
         foreach (var connection in connections)
             foreach (var terminal in connection.terminals)
-                if (terminal != null && terminal.Wire != null) yield return terminal.Wire;
+                if (terminal != null && !terminal.HasRoom)
+                    foreach (var wire in terminal.LooseWires) yield return wire;
     }
 
     public override void Tick()
@@ -151,6 +153,7 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
         else if (RecentTerminalTime(t => t.LastClosedTime)) hint = ClosedHint;
         else if (Time.time - lastPulledOutTime < 1f) hint = PulledOutHint;
         else if (seatedIn != null) hint = ScrewHint(seatedIn);
+        else if (pending != null) hint = OpenHint(FreeTerminal(pending));
 
         if (hint == null || Time.time < nextHintTime) return;
         Context.ShowHint(hint);
@@ -168,6 +171,14 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
         }
         float idleSince = Mathf.Max(screwdriver.EngagedSince, screwdriver.LastTurnTime);
         return Time.time - idleSince > 4f ? TurnHint : null;
+    }
+
+    /// <summary>El conector ya tiene cables apretados: hay que aflojar su tornillo antes de meter otro.</summary>
+    string OpenHint(MeterTerminal terminal)
+    {
+        if (terminal == null || !terminal.IsClosed || screwdriver.CurrentScrew != terminal.screw) return null;
+        float idleSince = Mathf.Max(screwdriver.EngagedSince, screwdriver.LastTurnTime);
+        return Time.time - idleSince > 4f ? LoosenHint : null;
     }
 
     void OnWireInserted(MeterTerminal terminal, WireStripper wire)
@@ -279,11 +290,11 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
         return distance;
     }
 
-    /// <summary>Primera terminal libre de la conexión (la primera, si todas están ocupadas).</summary>
+    /// <summary>Primera terminal con lugar de la conexión (la primera, si todas están llenas).</summary>
     static MeterTerminal FreeTerminal(Connection connection)
     {
         foreach (var terminal in connection.terminals)
-            if (terminal.State == MeterTerminal.TerminalState.Empty) return terminal;
+            if (terminal.HasRoom) return terminal;
         return connection.terminals.Length > 0 ? connection.terminals[0] : null;
     }
 
@@ -316,8 +327,10 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
             return;
         }
 
+        // A closed connector has to be loosened first, so point at its screw.
         var terminal = PlacedIn(pending, out _);
-        marker.target = terminal != null ? terminal.screw.head : FreeTerminal(pending).transform;
+        var free = FreeTerminal(pending);
+        marker.target = terminal != null ? terminal.screw.head : free.IsClosed ? free.screw.head : free.transform;
     }
 
     static bool RecentTerminalTime(System.Func<MeterTerminal, float> time)

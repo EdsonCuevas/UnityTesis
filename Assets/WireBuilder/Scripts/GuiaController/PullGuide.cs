@@ -69,11 +69,14 @@ public class PullGuide : MonoBehaviour
     public float insertGain = 1.5f;
     [Tooltip("Resistencia por cada 90° de curva al meter la guía; es rígida y se desliza mejor que los cables.")]
     public float insertBendResistance = 0.2f;
-    public float pullSpeed = 0.6f;
+    [Tooltip("Velocidad máxima de la mano al jalar (m/s), antes de dividirla por las curvas.")]
+    public float pullSpeed = 1.0f;
+    [Tooltip("Metros que avanza la guía por cada metro que jala la mano.")]
+    public float pullGain = 1.75f;
     [Tooltip("Resistencia extra por cada 90° de curva recorrida: divide la velocidad máxima.")]
-    public float bendResistance = 0.5f;
+    public float bendResistance = 0.25f;
     [Tooltip("Cuánto puede pasarse la mano de la velocidad máxima al jalar antes de que la guía se le resbale.")]
-    public float slipTolerance = 1.4f;
+    public float slipTolerance = 1.8f;
 
     [Header("Atascos")]
     [Tooltip("Distancias desde el medidor, en orden, donde la guía se atora al jalarla (por ejemplo, después de los codos).")]
@@ -282,7 +285,8 @@ public class PullGuide : MonoBehaviour
         foreach (var cable in cables)
             reachable = Mathf.Min(reachable, cable.MaxReachableProgress() / cable.PathLength * Length);
 
-        float target = headDistance + Mathf.Min(outward, speedLimit * slipTolerance * Time.fixedDeltaTime);
+        // The slip limit is on the hand's speed; the gain only scales how far the guide moves.
+        float target = headDistance + pullGain * Mathf.Min(outward, speedLimit * slipTolerance * Time.fixedDeltaTime);
         if (target > reachable)
         {
             target = reachable;
