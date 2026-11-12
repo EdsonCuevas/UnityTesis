@@ -16,6 +16,10 @@ public class TutorialManager : GuidedFlowManager
     [Tooltip("Segundos manteniendo B para saltar el tutorial.")]
     public float skipHoldSeconds = 2f;
 
+    protected override string StatsLevelId => "tutorial";
+    protected override string StatsMode => "Tutorial";
+    protected override bool StatsHasVoltage => false;
+
     float skipHeld;
     bool finished;
 
@@ -36,7 +40,7 @@ public class TutorialManager : GuidedFlowManager
 
         if (skipHeld >= skipHoldSeconds)
         {
-            StopFlow();
+            StopFlow("saltado");
             ShowFinal();
         }
     }

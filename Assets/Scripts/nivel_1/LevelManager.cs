@@ -32,15 +32,17 @@ public class LevelManager : GuidedFlowManager
     // Estorban al manejar los cables; los controles ya se aprendieron en el tutorial.
     protected override bool ShowControllerHints => false;
 
+    protected override string StatsLevelId => levelId;
+    protected override string StatsMode => ModeLabel(CurrentMode);
+
     readonly List<LevelStepResult> stepResults = new List<LevelStepResult>();
-    float startedAt;
 
     protected override void Start()
     {
         base.Start();
         panel.SetSkipVisible(false);
         panel.MoveTo(introPanelAnchor);
-        panel.Show(levelTitle, introBody, 0, 0);
+        panel.Show(levelTitle, $"{introBody}\n\n<b>{StudentSession.Label}</b>", 0, 0);
         PlayNarration(introNarration);
         panel.SetButtons(
             new TutorialPanel.ButtonSpec("Modo práctica", () => BeginLevel(Mode.Practica)),
@@ -53,13 +55,11 @@ public class LevelManager : GuidedFlowManager
         CurrentMode = mode;
         Context.HintsEnabled = mode == Mode.Practica;
         stepResults.Clear();
-        startedAt = Time.time;
         StartFlow();
     }
 
-    protected override void OnStepCompleted(int index, float seconds, int hints)
+    protected override void OnStepCompleted(int index, float seconds, int hints, int errors)
     {
-        int errors = steps[index] is IStepErrors counted ? counted.Errors : 0;
         stepResults.Add(new LevelStepResult { paso = steps[index].title, segundos = seconds, avisos = hints, errores = errors });
     }
 
@@ -77,9 +77,10 @@ public class LevelManager : GuidedFlowManager
 
         var attempt = new LevelAttempt
         {
+            alumno = StudentSession.IdOrDefault,
             modo = ModeLabel(CurrentMode),
-            fecha = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
-            segundosTotales = Time.time - startedAt,
+            fecha = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+            segundosTotales = AttemptSeconds,
             avisos = hints,
             errores = errors,
             pasos = stepResults.ToArray()
@@ -87,9 +88,9 @@ public class LevelManager : GuidedFlowManager
         var record = LevelResultsStore.SaveAttempt(levelId, attempt);
 
         string body =
-            $"Modo: {attempt.modo}\n" +
+            $"{StudentSession.Label} · Modo: {attempt.modo}\n" +
             $"Tiempo total: {FormatTime(attempt.segundosTotales)}\n" +
-            $"Mejor tiempo en este modo: {FormatTime(record.BestSeconds(attempt.modo))}\n" +
+            $"Tu mejor tiempo en este modo: {FormatTime(record.BestSeconds(attempt.modo, attempt.alumno))}\n" +
             $"{(CurrentMode == Mode.Practica ? "Avisos recibidos" : "Dificultades detectadas")}: {hints}\n" +
             $"Conexiones incorrectas: {errors}\n" +
             (slowest != null ? $"Paso más tardado: {slowest.paso} ({FormatTime(slowest.segundos)})" : string.Empty);

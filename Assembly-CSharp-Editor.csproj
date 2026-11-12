@@ -51,6 +51,7 @@
   <ItemGroup>
     <Compile Include="Assets\Scripts\Editor\QuintaTerminalBuilder.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Editor\ReadmeEditor.cs" />
+    <Compile Include="Assets\Scripts\Editor\StudentKeypadBuilder.cs" />
     <Compile Include="Assets\Scripts\Editor\AsignarVoces220.cs" />
   </ItemGroup>
   <ItemGroup>

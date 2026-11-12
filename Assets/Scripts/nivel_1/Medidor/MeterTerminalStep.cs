@@ -61,6 +61,9 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
     float heldSince;
     float lastPulledOutTime;
     float nextHintTime;
+    // Tips already tightened when the step began: in evaluation they counted for an earlier step (the
+    // first end of the jumper), so they must not complete this one.
+    readonly HashSet<WireStripper> earlierTips = new HashSet<WireStripper>();
 
     // In evaluation there are no hints to fix a wrong place, so any tightened terminal counts.
     bool Strict => Context == null || Context.HintsEnabled;
@@ -97,6 +100,14 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
             startDistances[i] = Mathf.Clamp(DistanceToTerminal(connections[i]), 0.05f, 10f);
 
         WireGrab.Only(StepWires(), Occupants());
+
+        earlierTips.Clear();
+        if (!Strict)
+            foreach (var wire in StepWires())
+            {
+                var holder = MeterTerminal.Holding(wire);
+                if (holder != null && holder.State == MeterTerminal.TerminalState.Tightened) earlierTips.Add(wire);
+            }
 
         WrongConnections = 0;
         seatedWire = null;
@@ -183,7 +194,7 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
 
     void OnWireInserted(MeterTerminal terminal, WireStripper wire)
     {
-        if (terminal.Accepts(wire) && !AlreadyFilled(terminal, wire)) return;
+        if (terminal.Accepts(wire) && !AlreadyFilled(terminal, wire) && !TooEarly(terminal, wire)) return;
         WrongConnections++;
 
         var connection = Find(wire);
@@ -217,6 +228,23 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
         return false;
     }
 
+    /// <summary>
+    /// En práctica, una punta de este paso que entra en una terminal que la acepta pero que no es de este
+    /// paso (la quinta terminal, cuando el paso es el del conector de neutro) va en otro paso: se avisa.
+    /// </summary>
+    bool TooEarly(MeterTerminal terminal, WireStripper wire)
+    {
+        if (!Strict) return false;
+        bool used = false;
+        foreach (var connection in connections)
+        {
+            if (!connection.Uses(wire)) continue;
+            used = true;
+            if (connection.Lists(terminal)) return false;
+        }
+        return used;
+    }
+
     /// <summary>Terminal donde está una punta de la conexión y que cuenta para el paso, o null.</summary>
     MeterTerminal PlacedIn(Connection connection, out WireStripper placed)
     {
@@ -226,6 +254,7 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
         // In evaluation any terminal counts, but a tip fills only one connection.
         foreach (var candidate in connection.Wires)
         {
+            if (earlierTips.Contains(candidate)) continue;
             terminal = MeterTerminal.Holding(candidate);
             if (terminal != null && !ClaimedByOther(connection, candidate))
             {
@@ -238,10 +267,11 @@ public class MeterTerminalStep : TutorialStep, IStepErrors
     }
 
     /// <summary>Primera punta de la conexión que está en una de sus terminales.</summary>
-    static MeterTerminal ListedPlacement(Connection connection, out WireStripper placed)
+    MeterTerminal ListedPlacement(Connection connection, out WireStripper placed)
     {
         foreach (var candidate in connection.Wires)
         {
+            if (earlierTips.Contains(candidate)) continue;
             var terminal = MeterTerminal.Holding(candidate);
             if (connection.Lists(terminal))
             {

@@ -63,8 +63,23 @@ public abstract class GuidedFlowManager : MonoBehaviour
     /// <summary>Flechas sobre los botones de los controles; solo aplica si ShowGuides está activo.</summary>
     protected virtual bool ShowControllerHints => true;
 
+    /// <summary>Id para las estadísticas (nivel1, nivel1_220, tutorial). Vacío = no se registra.</summary>
+    protected virtual string StatsLevelId => string.Empty;
+
+    /// <summary>Modo que se anota en las estadísticas (Práctica, Evaluación, Tutorial).</summary>
+    protected virtual string StatsMode => string.Empty;
+
+    /// <summary>Falso en el tutorial, que no depende del voltaje.</summary>
+    protected virtual bool StatsHasVoltage => true;
+
     Coroutine flow;
     bool loading;
+
+    StatsAttempt attempt;
+    float attemptStartedAt;
+    int currentStepIndex = -1;
+    float currentStepStartedAt;
+    int currentStepHintsAtStart;
 
     Coroutine hintVoice;
     AudioClip pendingHint;
@@ -90,17 +105,29 @@ public abstract class GuidedFlowManager : MonoBehaviour
             step.SetVisible(false);
     }
 
-    protected void StartFlow() => flow = StartCoroutine(RunSteps());
+    protected void StartFlow()
+    {
+        CloseAttempt("abandonado");
+        if (!string.IsNullOrEmpty(StatsLevelId))
+            attempt = StatsLogger.BeginAttempt(StatsLevelId, StatsMode, steps.Length, StatsHasVoltage);
+        attemptStartedAt = Time.time;
+        flow = StartCoroutine(RunSteps());
+    }
 
-    protected void StopFlow()
+    /// <summary>Detiene los pasos; si había un intento abierto se guarda con ese resultado (por ejemplo, "saltado").</summary>
+    protected void StopFlow(string result = "abandonado")
     {
         if (flow != null) StopCoroutine(flow);
         flow = null;
+        CloseAttempt(result);
         EndCurrentStep();
     }
 
+    /// <summary>Segundos desde que empezó el intento actual.</summary>
+    protected float AttemptSeconds => Time.time - attemptStartedAt;
+
     /// <summary>Se llama al terminar cada paso, antes de ocultarlo.</summary>
-    protected virtual void OnStepCompleted(int index, float seconds, int hints) { }
+    protected virtual void OnStepCompleted(int index, float seconds, int hints, int errors) { }
 
     protected abstract void OnAllStepsCompleted();
 
@@ -109,10 +136,11 @@ public abstract class GuidedFlowManager : MonoBehaviour
         for (int i = 0; i < steps.Length; i++)
         {
             BeginStep(steps[i], i);
-            float startedAt = Time.time;
-            int hintsAtStart = Context.HintCount;
+            currentStepIndex = i;
+            currentStepStartedAt = Time.time;
+            currentStepHintsAtStart = Context.HintCount;
 
-            while (!CurrentStep.IsComplete || Time.time - startedAt < minSecondsPerStep)
+            while (!CurrentStep.IsComplete || Time.time - currentStepStartedAt < minSecondsPerStep)
             {
                 CurrentStep.Tick();
                 panel.SetProgress(CurrentStep.Progress);
@@ -121,14 +149,43 @@ public abstract class GuidedFlowManager : MonoBehaviour
 
             panel.SetProgress(1f);
             Celebrate();
-            OnStepCompleted(i, Time.time - startedAt, Context.HintCount - hintsAtStart);
+            float seconds = Time.time - currentStepStartedAt;
+            int hints = Context.HintCount - currentStepHintsAtStart;
+            int errors = StepErrors(i);
+            currentStepIndex = -1;
+            attempt?.LogStep(i, steps[i].title, seconds, hints, errors, true);
+            OnStepCompleted(i, seconds, hints, errors);
             EndCurrentStep();
             yield return new WaitForSeconds(pauseBetweenSteps);
         }
 
         flow = null;
+        CloseAttempt("completado");
         OnAllStepsCompleted();
     }
+
+    int StepErrors(int index) => steps[index] is IStepErrors counted ? counted.Errors : 0;
+
+    /// <summary>Guarda el intento abierto. Si quedó un paso a medias se anota como no terminado.</summary>
+    void CloseAttempt(string result)
+    {
+        if (attempt == null) return;
+
+        if (currentStepIndex >= 0 && currentStepIndex < steps.Length && Context != null)
+        {
+            int i = currentStepIndex;
+            attempt.LogStep(i, steps[i].title, Time.time - currentStepStartedAt,
+                Context.HintCount - currentStepHintsAtStart, StepErrors(i), false);
+        }
+        currentStepIndex = -1;
+        attempt.Close(AttemptSeconds, result);
+        attempt = null;
+    }
+
+    // Salir al menú, reintentar o cerrar la app a la mitad deja el intento como abandonado.
+    protected virtual void OnDestroy() => CloseAttempt("abandonado");
+
+    void OnApplicationQuit() => CloseAttempt("abandonado");
 
     void BeginStep(TutorialStep step, int index)
     {

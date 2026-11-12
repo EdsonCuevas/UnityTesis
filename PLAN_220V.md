@@ -15,7 +15,7 @@ Escenas aparte, copiadas de las de 127 V el 2026-11-05: `Assets/Scenes/Nivel1_22
 - `MenuVoltageSelector` en `UI/Canvas/UIElement/Selector_Voltaje`: dos botones 127 V / 220 V; agrega el voltaje al título de los botones de nivel y refresca sus tiempos (`MenuLevelEntry.Refresh`).
 - Los botones de nivel llaman `MenuController.LoadLevel` (antes `LoadScene`). "Ir al nivel" del tutorial también respeta el modo.
 
-## Nivel1_220 (29 pasos)
+## Nivel1_220 (30 pasos)
 
 | Cable | Color | Acometida | Carga |
 |---|---|---|---|
@@ -29,7 +29,8 @@ Escenas aparte, copiadas de las de 127 V el 2026-11-05: `Assets/Scenes/Nivel1_22
 - Las rutas de acomodo de la fase B son espejo de las de la fase A (eje x 7.5134), con el mismo cruce: la de carga pasa por delante de la de acometida.
 - **Quinta terminal** (agregada el 2026-11-05 a pedido del usuario, con fotos de referencia de bases de 5 terminales): el medidor bifásico necesita el neutro. Va **a media altura del lado izquierdo** (posición de las 9), entre las mordazas de la fase A, apuntando al centro; una primera versión junto al conector estaba mal. `MedidorV2/Quinta_Terminal` son piezas simples: `Quinta_Mordaza` (plateada), `Quinta_Zapata` (cobre) y `GEO_Tuerca_Quinta` (clon de `GEO_Tuerca6_Izq`), más `Cobre_Entrada_Puente` y `GEO_Tuerca6_Puente`, una cuarta entrada a la izquierda del conector de neutro (x 7.540). `Terminal_Quinta`: boca en (7.570, 1.342, 0.2255), entra hacia +X como la de línea. `Terminal_Neutro_Puente`: boca por abajo del conector. Las dos aceptan las 2 puntas del puente.
 - Para hacerle lugar, la bajada de la fase A de acometida pasó de x 7.560 a 7.550 (`Terminal_Linea/Acomodo_1-2`) y la fase A de carga cruza más adelante (`Terminal_Carga_Fase/Acomodo_2` z 0.236). El puente baja del conector y entra a la quinta por detrás de la fase A.
-- El puente (`Puente_Neutro`) vuelve en los pasos `18_pelar_puente` (voz de 127 V) y `19_colocar_puente` (voz nueva). Va de la entrada izquierda del conector a la quinta terminal; la fase B ocupa la mordaza donde iba en 127 V.
+- El puente (`Puente_Neutro`) vuelve en los pasos `18_pelar_puente` (voz de 127 V), `19a_puente_conector` y `19b_puente_quinta` (voces nuevas). Va de la entrada izquierda del conector a la quinta terminal; la fase B ocupa la mordaza donde iba en 127 V.
+- 2026-11-11: el antiguo `19_colocar_puente` se separó en dos pasos (opción A): primero una punta al conector de neutro, después la otra a la quinta terminal. Cualquiera de las dos puntas sirve. En práctica, meter una punta en la quinta durante el paso del conector da el aviso "primero mete una punta del puente en el conector de neutro". En evaluación, la punta que ya quedó apretada en el paso anterior no cuenta para el siguiente (`MeterTerminalStep.earlierTips`).
 - `GuidePullStep.jammedPullHint`/`notHookedHint` y `GuideTapeStep.notHookedHint` (campos nuevos; en 127 V conservan el texto de "tres cables") dicen "cuatro".
 - `levelId` `nivel1_220`, siguiente nivel `Nivel2_220`.
 

@@ -55,6 +55,7 @@
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireTipConnector.cs" />
     <Compile Include="Assets\Scripts\tutorial\TurnStep.cs" />
     <Compile Include="Assets\Scripts\tutorial\GrabStep.cs" />
+    <Compile Include="Assets\Scripts\Estadisticas\StudentSession.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\GuiaController\WireTipReceiver.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\LoadWireFeedStep.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\TubeRenderer.cs" />
@@ -99,6 +100,7 @@
     <Compile Include="Assets\Scripts\nivel_1\Medidor\MeterTerminalStep.cs" />
     <Compile Include="Assets\TutorialInfo\Scripts\Readme.cs" />
     <Compile Include="Assets\Scripts\nivel_1\HeavyLidTransformer.cs" />
+    <Compile Include="Assets\Scripts\Estadisticas\StatsLogger.cs" />
     <Compile Include="Assets\Scripts\MenuLevelEntry.cs" />
     <Compile Include="Assets\WireBuilder\Scripts\WireController.cs" />
     <Compile Include="Assets\Scripts\tutorial\TutorialManager.cs" />
@@ -108,6 +110,7 @@
     <Compile Include="Assets\Scripts\tutorial\GuideLine.cs" />
     <Compile Include="Assets\Scripts\tutorial\WireStripper.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\MeterTerminal.cs" />
+    <Compile Include="Assets\Scripts\Estadisticas\StudentKeypad.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelManager.cs" />
     <Compile Include="Assets\Scripts\nivel_1\Medidor\Screwdriver.cs" />
     <Compile Include="Assets\Scripts\nivel_1\ResetIfFallen.cs" />
