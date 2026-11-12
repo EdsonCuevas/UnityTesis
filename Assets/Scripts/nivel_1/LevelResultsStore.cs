@@ -15,6 +15,7 @@ public class LevelStepResult
 [Serializable]
 public class LevelAttempt
 {
+    public string alumno;
     public string modo;
     public string fecha;
     public float segundosTotales;
@@ -29,12 +30,12 @@ public class LevelRecord
     public string nivel;
     public List<LevelAttempt> intentos = new List<LevelAttempt>();
 
-    /// <summary>Menor tiempo registrado en ese modo, o 0 si no hay intentos.</summary>
-    public float BestSeconds(string modo)
+    /// <summary>Menor tiempo de ese alumno en ese modo, o 0 si no tiene intentos.</summary>
+    public float BestSeconds(string modo, string alumno)
     {
         float best = 0f;
         foreach (var intento in intentos)
-            if (intento.modo == modo && (best == 0f || intento.segundosTotales < best))
+            if (intento.modo == modo && intento.alumno == alumno && (best == 0f || intento.segundosTotales < best))
                 best = intento.segundosTotales;
         return best;
     }
