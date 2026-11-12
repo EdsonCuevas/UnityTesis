@@ -18,7 +18,7 @@ Quest > Almacenamiento interno compartido > Android > data > com.KamehouseO.VREl
 Si Windows no muestra la carpeta `Android/data`, usa Meta Quest Developer Hub (File Manager) o adb:
 
 ```
-adb pull /sdcard/Android/data/com.KamehouseO.VRElectricalSimulation/files/estadisticas datos/2026-11-20
+adb pull /sdcard/Android/data/com.UnityTechnologies.com.unity.template.urpblank/files/estadisticas ~/Desktop/
 ```
 
 Puedes guardar varias copias (una por día) dentro de `datos/`: el script junta todo y quita repetidos.
