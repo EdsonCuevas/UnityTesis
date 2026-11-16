@@ -73,6 +73,7 @@
     <Compile Include="Assets\Scripts\tutorial\TutorialPanel.cs" />
     <Compile Include="Assets\Scripts\tutorial\ReachZoneStep.cs" />
     <Compile Include="Assets\Scripts\nivel_1\IgnoreLayerCollisions.cs" />
+    <Compile Include="Assets\Scripts\nivel_2\TerminalWireHook.cs" />
     <Compile Include="Assets\Scripts\nivel_1\GuideInsertStep.cs" />
     <Compile Include="Assets\Scripts\personaje\FootstepsVR.cs" />
     <Compile Include="Assets\Scripts\nivel_1\LevelResultsStore.cs" />
